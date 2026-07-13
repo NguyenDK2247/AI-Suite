@@ -52,11 +52,29 @@ public class ChatHandler implements HttpHandler {
         try {
             String city = detectCity(userMessage);
             int hoursAhead = detectHours(userMessage);
+            String weatherDataJson = null;
             String promptForGroq;
 
             if (city != null && hoursAhead > 0) {
                 List<WeatherService.ForecastSlot> slots = weatherService.fetchForecast(city, hoursAhead);
                 promptForGroq = buildForecastPrompt(userMessage, city, hoursAhead, slots);
+
+                StringBuilder sb = new StringBuilder();
+                sb.append("{\"city\":\"").append(escapeJson(city)).append("\",\"forecast\":[");
+                for (int i = 0; i < slots.size(); i++) {
+                    WeatherService.ForecastSlot s = slots.get(i);
+                    sb.append("{")
+                            .append("\"time\":\"").append(escapeJson(s.time())).append("\",")
+                            .append("\"tempCelsius\":").append(s.tempCelsius()).append(",")
+                            .append("\"description\":\"").append(escapeJson(s.description())).append("\",")
+                            .append("\"humidity\":").append(s.humidity()).append(",")
+                            .append("\"windSpeed\":").append(s.windSpeed())
+                            .append("}");
+                    if (i < slots.size() - 1)
+                        sb.append(",");
+                }
+                sb.append("]}");
+                weatherDataJson = sb.toString();
 
             } else if (city != null) {
                 WeatherService.WeatherData w = weatherService.fetch(city);
@@ -68,12 +86,29 @@ public class ChatHandler implements HttpHandler {
                         + "humidity " + w.humidity() + "%, "
                         + "wind " + String.format("%.1f", w.windSpeed()) + " m/s]";
 
+                weatherDataJson = "{" +
+                        "\"city\":\"" + escapeJson(w.city()) + "\"," +
+                        "\"tempCelsius\":" + w.tempCelsius() + "," +
+                        "\"feelsLike\":" + w.feelsLike() + "," +
+                        "\"description\":\"" + escapeJson(w.description()) + "\"," +
+                        "\"humidity\":" + w.humidity() + "," +
+                        "\"windSpeed\":" + w.windSpeed() +
+                        "}";
+
             } else {
                 promptForGroq = userMessage;
             }
 
             String reply = groqService.chat(promptForGroq);
-            sendResponse(exchange, 200, "{\"reply\":\"" + escapeJson(reply) + "\"}");
+
+            StringBuilder jsonResponse = new StringBuilder();
+            jsonResponse.append("{\"reply\":\"").append(escapeJson(reply)).append("\"");
+            if (weatherDataJson != null) {
+                jsonResponse.append(",\"weatherData\":").append(weatherDataJson);
+            }
+            jsonResponse.append("}");
+
+            sendResponse(exchange, 200, jsonResponse.toString());
 
         } catch (IOException e) {
             String err = e.getMessage() != null ? e.getMessage() : "Unknown error";

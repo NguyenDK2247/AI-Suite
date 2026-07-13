@@ -479,9 +479,15 @@
       opacity: 0;
       transition: opacity .15s, color .15s;
     }
-    
-    .hist-item:hover .hist-del { opacity: 0.6; }
-    .hist-del:hover { color: #f87171 !important; opacity: 1 !important; }
+
+    .hist-item:hover .hist-del {
+      opacity: 0.6;
+    }
+
+    .hist-del:hover {
+      color: #f87171 !important;
+      opacity: 1 !important;
+    }
 
     .hist-time::before {
       content: '';
@@ -543,7 +549,7 @@
       padding: 0 12px 10px;
       flex-shrink: 0;
     }
-    
+
     .hist-search {
       width: 100%;
       padding: 8px 12px;
@@ -556,9 +562,134 @@
       outline: none;
       transition: border-color .15s;
     }
-    
-    .hist-search::placeholder { color: var(--muted); }
-    .hist-search:focus { border-color: var(--accent); }
+
+    .hist-search::placeholder {
+      color: var(--muted);
+    }
+
+    .hist-search:focus {
+      border-color: var(--accent);
+    }
+
+    /* Weather Card & Voice UI */
+    .weather-card {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+      font-family: 'Inter', sans-serif;
+      /* Force normalization to bypass parent bubble styling overrides */
+      line-height: 1.2;
+      width: 100%;
+      min-width: 260px;
+      max-width: 340px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .wc-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .wc-city {
+      font-weight: 700;
+      font-size: 16px;
+      letter-spacing: -0.2px;
+    }
+
+    .wc-desc {
+      font-size: 12px;
+      text-transform: capitalize;
+      opacity: 0.9;
+    }
+
+    .wc-main {
+      margin: 4px 0;
+    }
+
+    .wc-temp {
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -1px;
+    }
+
+    .wc-details {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 12px;
+      opacity: 0.95;
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+      padding-top: 10px;
+    }
+
+    .wc-forecast {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+    }
+
+    .wc-forecast-item {
+      background: rgba(255, 255, 255, 0.15);
+      padding: 10px 6px;
+      border-radius: 8px;
+      min-width: 85px;
+      height: 125px;
+      /* Bumped up slightly to 125px for the emoji */
+      flex-shrink: 0;
+
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      box-sizing: border-box;
+    }
+
+    .wc-forecast-time {
+      font-size: 10px;
+      opacity: 0.9;
+      margin-bottom: 4px;
+    }
+
+    .wc-forecast-temp {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .wc-forecast-desc {
+      font-size: 10px;
+      opacity: 0.8;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 75px;
+      /* Matches our new wider box */
+      text-align: center;
+      /* Centers the text inside the block */
+      width: 100%;
+      /* Allows centering across the parent block */
+    }
+
+    .wc-forecast::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    .wc-forecast::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 4px;
+    }
+
+    .wc-forecast::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.4);
+      border-radius: 4px;
+    }
   </style>
 </head>
 
@@ -602,7 +733,8 @@
       </div>
       <div class="persist-badge">Saved locally — survives server restarts</div>
       <div class="hist-search-wrap">
-        <input type="text" id="hist-search" class="hist-search" placeholder="Search history..." oninput="renderHistory(this.value)" />
+        <input type="text" id="hist-search" class="hist-search" placeholder="Search history..."
+          oninput="renderHistory(this.value)" />
       </div>
       <div id="history-list"></div>
     </div>
@@ -621,6 +753,61 @@
 
     function now() {
       return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function getWeatherEmoji(desc) {
+      const d = desc.toLowerCase();
+      if (d.includes('thunderstorm')) return '⛈️';
+      if (d.includes('drizzle') || d.includes('rain')) return '🌧️';
+      if (d.includes('snow')) return '❄️';
+      if (d.includes('clear')) return '☀️';
+      if (d.includes('clouds')) {
+        if (d.includes('few') || d.includes('scattered')) return '🌤️';
+        return '☁️';
+      }
+      if (d.includes('mist') || d.includes('smoke') || d.includes('haze') || d.includes('fog')) return '🌫️';
+      return '🌡️'; // Default fallback
+    }
+
+    function buildBotMessageHtml(replyText, wd) {
+      let weatherHtml = '';
+      if (wd) {
+        if (wd.forecast) {
+          let items = wd.forecast.map(f => `
+              <div class="wc-forecast-item">
+                  <div class="wc-forecast-time">${f.time.split(' ')[1].substring(0, 5)}</div>
+                  <div class="wc-forecast-emoji" style="font-size: 24px; margin: 4px 0;">${getWeatherEmoji(f.description)}</div>
+                  <div class="wc-forecast-temp">${Math.round(f.tempCelsius)}°</div>
+                  <div class="wc-forecast-desc" title="${f.description}">${f.description}</div>
+              </div>
+          `).join('');
+          weatherHtml = `
+              <div class="weather-card">
+                  <div class="wc-header">
+                      <div class="wc-city">${wd.city} Forecast</div>
+                  </div>
+                  <div class="wc-forecast">${items}</div>
+              </div>`;
+        } else {
+          weatherHtml = `
+              <div class="weather-card">
+                  <div class="wc-header">
+                      <div class="wc-city">${wd.city}</div>
+                      <div class="wc-desc">${wd.description}</div>
+                  </div>
+                  <div class="wc-main" style="display: flex; justify-content: space-between; align-items: center; margin: 8px 0;">
+                      <div class="wc-temp">${Math.round(wd.tempCelsius)}°C</div>
+                      <div class="wc-large-emoji" style="font-size: 44px; line-height: 1;">${getWeatherEmoji(wd.description)}</div>
+                  </div>
+                  <div class="wc-details">
+                      <span>💧 ${wd.humidity}%</span>
+                      <span>💨 ${wd.windSpeed} m/s</span>
+                      <span>Feels like ${Math.round(wd.feelsLike)}°C</span>
+                  </div>
+              </div>`;
+        }
+      }
+      return weatherHtml + `<div>${escHtml(replyText)}</div>`;
     }
 
     function nowFull() {
@@ -687,7 +874,7 @@
       historyList.innerHTML = '';
 
       if (entries.length === 0) {
-        historyList.innerHTML = query 
+        historyList.innerHTML = query
           ? '<p class="hist-empty">No matches found for your search.</p>'
           : '<p class="hist-empty">No history yet.<br>Start chatting to see<br>your conversations here.</p>';
         return;
@@ -705,16 +892,19 @@
         <div class="hist-q">${escHtml(entry.question)}</div>
         <div class="hist-a">${escHtml(entry.answer)}</div>`;
         item.title = 'Click to view full answer in chat';
-        
+
         const delBtn = item.querySelector('.hist-del');
         delBtn.onclick = (e) => {
           e.stopPropagation();
           deleteHistoryItem(entry.originalIndex);
         };
-        
-        item.onclick = () => { 
+
+        item.onclick = () => {
           addMsg('user', escHtml(entry.question), entry.time);
-          addMsg('bot', escHtml(entry.answer), entry.time);
+
+          // Use our new helper to generate the full layout including cards!
+          const completeBotHtml = buildBotMessageHtml(entry.answer, entry.weatherData);
+          addMsg('bot', completeBotHtml, entry.time);
         };
         historyList.appendChild(item);
       });
@@ -728,9 +918,9 @@
       renderHistory(searchBox ? searchBox.value : '');
     }
 
-    function addToHistory(question, answer) {
+    function addToHistory(question, answer, weatherData = null) {
       const entries = loadHistory();
-      entries.push({ time: nowFull(), question, answer });
+      entries.push({ time: nowFull(), question, answer, weatherData });
       saveHistory(entries);
       const searchBox = document.getElementById('hist-search');
       renderHistory(searchBox ? searchBox.value : '');
@@ -762,6 +952,10 @@
       btn.disabled = true;
 
       let replyText = '';
+      let weatherHtml = '';
+      let rawText = '';
+      let savedWeatherData = null; // Declare this here so it is accessible outside the try block
+
       try {
         const res = await fetch('/chat', {
           method: 'POST',
@@ -769,14 +963,60 @@
           body: JSON.stringify({ message: text })
         });
         const data = await res.json();
-        replyText = data.reply || data.error || 'No response.';
+        rawText = data.reply || data.error || 'No response.';
+        replyText = escHtml(rawText);
+
+        if (data.weatherData) {
+          savedWeatherData = data.weatherData; // Store it for history
+          const wd = data.weatherData;
+          if (wd.forecast) {
+            let items = wd.forecast.map(f => `
+                    <div class="wc-forecast-item">
+                        <div class="wc-forecast-time">${f.time.split(' ')[1].substring(0, 5)}</div>
+                        <div class="wc-forecast-emoji" style="font-size: 24px; margin: 4px 0;">${getWeatherEmoji(f.description)}</div>
+                        <div class="wc-forecast-temp">${Math.round(f.tempCelsius)}°</div>
+                        <div class="wc-forecast-desc" title="${f.description}">${f.description}</div>
+                    </div>
+                `).join('');
+            weatherHtml = `
+                <div class="weather-card">
+                    <div class="wc-header">
+                        <div class="wc-city">${wd.city} Forecast</div>
+                    </div>
+                    <div class="wc-forecast">${items}</div>
+                </div>`;
+          } else {
+            weatherHtml = `
+                <div class="weather-card">
+                    <div class="wc-header">
+                        <div class="wc-city">${wd.city}</div>
+                        <div class="wc-desc">${wd.description}</div>
+                    </div>
+                    <div class="wc-main" style="display: flex; justify-content: space-between; align-items: center; margin: 8px 0;">
+                        <div class="wc-temp">${Math.round(wd.tempCelsius)}°C</div>
+                        <div class="wc-large-emoji" style="font-size: 44px; line-height: 1;">${getWeatherEmoji(wd.description)}</div>
+                    </div>
+                    <div class="wc-details">
+                        <span>💧 ${wd.humidity}%</span>
+                        <span>💨 ${wd.windSpeed} m/s</span>
+                        <span>Feels like ${Math.round(wd.feelsLike)}°C</span>
+                    </div>
+                </div>`;
+          }
+        }
       } catch (e) {
-        replyText = 'Could not reach the server.';
+        rawText = 'Could not reach the server.';
+        replyText = rawText;
       }
 
       indicator.remove();
-      addMsg('bot', escHtml(replyText));
-      addToHistory(text, replyText);
+
+      const botMsgHtml = weatherHtml + `<div>${replyText}</div>`;
+
+      addMsg('bot', botMsgHtml);
+
+      // Pass the safely scoped weather data variable here
+      addToHistory(text, rawText, savedWeatherData);
 
       btn.disabled = false;
       input.focus();
