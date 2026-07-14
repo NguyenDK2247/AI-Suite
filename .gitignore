@@ -2,4 +2,6 @@
 .env
 *.class
 out/
+target/
+build/
 run.bat
