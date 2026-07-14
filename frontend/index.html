@@ -9,6 +9,7 @@
     content="AI-powered weather chatbot with hourly forecasts, powered by Groq and OpenWeatherMap." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!--<link rel="stylesheet" href="styles.css" /> -->
   <style>
     *,
     *::before,
@@ -755,6 +756,13 @@
       return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
+    function nowFull() {
+      return new Date().toLocaleString([], {
+        month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+    }
+
     function getWeatherEmoji(desc) {
       const d = desc.toLowerCase();
       if (d.includes('thunderstorm')) return '⛈️';
@@ -766,55 +774,7 @@
         return '☁️';
       }
       if (d.includes('mist') || d.includes('smoke') || d.includes('haze') || d.includes('fog')) return '🌫️';
-      return '🌡️'; // Default fallback
-    }
-
-    function buildBotMessageHtml(replyText, wd) {
-      let weatherHtml = '';
-      if (wd) {
-        if (wd.forecast) {
-          let items = wd.forecast.map(f => `
-              <div class="wc-forecast-item">
-                  <div class="wc-forecast-time">${f.time.split(' ')[1].substring(0, 5)}</div>
-                  <div class="wc-forecast-emoji" style="font-size: 24px; margin: 4px 0;">${getWeatherEmoji(f.description)}</div>
-                  <div class="wc-forecast-temp">${Math.round(f.tempCelsius)}°</div>
-                  <div class="wc-forecast-desc" title="${f.description}">${f.description}</div>
-              </div>
-          `).join('');
-          weatherHtml = `
-              <div class="weather-card">
-                  <div class="wc-header">
-                      <div class="wc-city">${wd.city} Forecast</div>
-                  </div>
-                  <div class="wc-forecast">${items}</div>
-              </div>`;
-        } else {
-          weatherHtml = `
-              <div class="weather-card">
-                  <div class="wc-header">
-                      <div class="wc-city">${wd.city}</div>
-                      <div class="wc-desc">${wd.description}</div>
-                  </div>
-                  <div class="wc-main" style="display: flex; justify-content: space-between; align-items: center; margin: 8px 0;">
-                      <div class="wc-temp">${Math.round(wd.tempCelsius)}°C</div>
-                      <div class="wc-large-emoji" style="font-size: 44px; line-height: 1;">${getWeatherEmoji(wd.description)}</div>
-                  </div>
-                  <div class="wc-details">
-                      <span>💧 ${wd.humidity}%</span>
-                      <span>💨 ${wd.windSpeed} m/s</span>
-                      <span>Feels like ${Math.round(wd.feelsLike)}°C</span>
-                  </div>
-              </div>`;
-        }
-      }
-      return weatherHtml + `<div>${escHtml(replyText)}</div>`;
-    }
-
-    function nowFull() {
-      return new Date().toLocaleString([], {
-        month: 'short', day: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-      });
+      return '🌡️';
     }
 
     /* ── Chat rendering ───────────────────────────── */
@@ -880,7 +840,6 @@
         return;
       }
 
-      // Newest first
       [...entries].reverse().forEach((entry) => {
         const item = document.createElement('div');
         item.className = 'hist-item';
@@ -901,8 +860,6 @@
 
         item.onclick = () => {
           addMsg('user', escHtml(entry.question), entry.time);
-
-          // Use our new helper to generate the full layout including cards!
           const completeBotHtml = buildBotMessageHtml(entry.answer, entry.weatherData);
           addMsg('bot', completeBotHtml, entry.time);
         };
@@ -938,6 +895,47 @@
       return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
+    function buildBotMessageHtml(replyText, wd) {
+      let weatherHtml = '';
+      if (wd) {
+        if (wd.forecast) {
+          let items = wd.forecast.map(f => `
+              <div class="wc-forecast-item">
+                  <div class="wc-forecast-time">${f.time.split(' ')[1].substring(0, 5)}</div>
+                  <div class="wc-forecast-emoji" style="font-size: 24px; margin: 4px 0;">${getWeatherEmoji(f.description)}</div>
+                  <div class="wc-forecast-temp">${Math.round(f.tempCelsius)}°</div>
+                  <div class="wc-forecast-desc" title="${f.description}">${f.description}</div>
+              </div>
+          `).join('');
+          weatherHtml = `
+              <div class="weather-card">
+                  <div class="wc-header">
+                      <div class="wc-city">${wd.city} Forecast</div>
+                  </div>
+                  <div class="wc-forecast">${items}</div>
+              </div>`;
+        } else {
+          weatherHtml = `
+              <div class="weather-card">
+                  <div class="wc-header">
+                      <div class="wc-city">${wd.city}</div>
+                      <div class="wc-desc">${wd.description}</div>
+                  </div>
+                  <div class="wc-main" style="display: flex; justify-content: space-between; align-items: center; margin: 8px 0;">
+                      <div class="wc-temp">${Math.round(wd.tempCelsius)}°C</div>
+                      <div class="wc-large-emoji" style="font-size: 44px; line-height: 1;">${getWeatherEmoji(wd.description)}</div>
+                  </div>
+                  <div class="wc-details">
+                      <span>💧 ${wd.humidity}%</span>
+                      <span>💨 ${wd.windSpeed} m/s</span>
+                      <span>Feels like ${Math.round(wd.feelsLike)}°C</span>
+                  </div>
+              </div>`;
+        }
+      }
+      return weatherHtml + `<div>${escHtml(replyText)}</div>`;
+    }
+
     /* ── Send logic ───────────────────────────────── */
 
     async function send() {
@@ -952,9 +950,10 @@
       btn.disabled = true;
 
       let replyText = '';
-      let weatherHtml = '';
       let rawText = '';
-      let savedWeatherData = null; // Declare this here so it is accessible outside the try block
+      let weatherDataPayload = null;
+
+      const startTime = Date.now();
 
       try {
         const res = await fetch('/chat', {
@@ -964,59 +963,23 @@
         });
         const data = await res.json();
         rawText = data.reply || data.error || 'No response.';
-        replyText = escHtml(rawText);
-
-        if (data.weatherData) {
-          savedWeatherData = data.weatherData; // Store it for history
-          const wd = data.weatherData;
-          if (wd.forecast) {
-            let items = wd.forecast.map(f => `
-                    <div class="wc-forecast-item">
-                        <div class="wc-forecast-time">${f.time.split(' ')[1].substring(0, 5)}</div>
-                        <div class="wc-forecast-emoji" style="font-size: 24px; margin: 4px 0;">${getWeatherEmoji(f.description)}</div>
-                        <div class="wc-forecast-temp">${Math.round(f.tempCelsius)}°</div>
-                        <div class="wc-forecast-desc" title="${f.description}">${f.description}</div>
-                    </div>
-                `).join('');
-            weatherHtml = `
-                <div class="weather-card">
-                    <div class="wc-header">
-                        <div class="wc-city">${wd.city} Forecast</div>
-                    </div>
-                    <div class="wc-forecast">${items}</div>
-                </div>`;
-          } else {
-            weatherHtml = `
-                <div class="weather-card">
-                    <div class="wc-header">
-                        <div class="wc-city">${wd.city}</div>
-                        <div class="wc-desc">${wd.description}</div>
-                    </div>
-                    <div class="wc-main" style="display: flex; justify-content: space-between; align-items: center; margin: 8px 0;">
-                        <div class="wc-temp">${Math.round(wd.tempCelsius)}°C</div>
-                        <div class="wc-large-emoji" style="font-size: 44px; line-height: 1;">${getWeatherEmoji(wd.description)}</div>
-                    </div>
-                    <div class="wc-details">
-                        <span>💧 ${wd.humidity}%</span>
-                        <span>💨 ${wd.windSpeed} m/s</span>
-                        <span>Feels like ${Math.round(wd.feelsLike)}°C</span>
-                    </div>
-                </div>`;
-          }
-        }
+        weatherDataPayload = data.weatherData || null;
       } catch (e) {
         rawText = 'Could not reach the server.';
-        replyText = rawText;
+      }
+
+      const elapsedTime = Date.now() - startTime;
+      const minimumDelay = 600;
+      if (elapsedTime < minimumDelay) {
+        await new Promise(resolve => setTimeout(resolve, minimumDelay - elapsedTime));
       }
 
       indicator.remove();
 
-      const botMsgHtml = weatherHtml + `<div>${replyText}</div>`;
+      const botMsgHtml = buildBotMessageHtml(rawText, weatherDataPayload);
 
       addMsg('bot', botMsgHtml);
-
-      // Pass the safely scoped weather data variable here
-      addToHistory(text, rawText, savedWeatherData);
+      addToHistory(text, rawText, weatherDataPayload);
 
       btn.disabled = false;
       input.focus();
