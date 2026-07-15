@@ -96,7 +96,6 @@ public class WeatherService {
         return slots;
     }
 
-
     private int findClosingBrace(String s, int open) {
         int depth = 0;
         boolean inStr = false;

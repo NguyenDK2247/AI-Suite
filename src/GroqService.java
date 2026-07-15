@@ -8,15 +8,11 @@ import java.util.List;
 
 public class GroqService {
 
-    // Groq uses an OpenAI-compatible API endpoint
     private static final String API_URL = "https://api.groq.com/openai/v1/chat/completions";
-    private static final String MODEL = "llama-3.3-70b-versatile"; // fast, free on Groq
+    private static final String MODEL = "llama-3.3-70b-versatile";
 
-    private final String apiKey;
-    private final HttpClient http;
-    private final List<String[]> history; // each entry: [role, content]
-
-    private static final String SYSTEM_PROMPT = """
+    // ── Built-in system prompts ──────────────────────────────────────────────────
+    public static final String WEATHER_PROMPT = """
             You are a friendly weather assistant. Your job is to give clear,
             helpful weather commentary when given live weather data.
 
@@ -28,8 +24,29 @@ public class GroqService {
             If no weather data is provided, ask the user which city they want.
             """;
 
-    public GroqService(String apiKey) {
+    public static final String CURRENCY_PROMPT = """
+            You are a knowledgeable currency and foreign exchange assistant.
+            Your sole purpose is to help users with currency conversion questions,
+            exchange rates, and forex topics.
+
+            When asked about a conversion, give the approximate rate and converted amount,
+            note that rates fluctuate and suggest the user verify with a live source
+            (like Google Finance or XE.com) for real transactions.
+
+            Keep responses to 3-5 sentences. Friendly, conversational tone.
+            If the user asks about anything other than currency or exchange rates,
+            politely redirect them to ask a currency-related question instead.
+            """;
+
+    // ── Instance fields ──────────────────────────────────────────────────────────
+    private final String apiKey;
+    private final String systemPrompt;
+    private final HttpClient http;
+    private final List<String[]> history; // [role, content]
+
+    public GroqService(String apiKey, String systemPrompt) {
         this.apiKey = apiKey;
+        this.systemPrompt = systemPrompt;
         this.http = HttpClient.newHttpClient();
         this.history = new ArrayList<>();
     }
@@ -41,13 +58,11 @@ public class GroqService {
     public String chat(String userMessage) throws IOException, InterruptedException {
         history.add(new String[] { "user", userMessage });
 
-        String body = buildRequestBody();
-
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(API_URL))
                 .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + apiKey) // Groq uses Bearer token, not x-api-key
-                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .header("Authorization", "Bearer " + apiKey)
+                .POST(HttpRequest.BodyPublishers.ofString(buildRequestBody()))
                 .build();
 
         HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
@@ -62,21 +77,18 @@ public class GroqService {
         return reply;
     }
 
-    // Groq uses OpenAI's format: system message goes inside the messages array
+    // ── Private helpers ──────────────────────────────────────────────────────────
+
     private String buildRequestBody() {
         StringBuilder messages = new StringBuilder("[");
-
-        // System message is the first entry in the messages array (not a top-level
-        // field)
         messages.append("{\"role\":\"system\",\"content\":\"")
-                .append(escape(SYSTEM_PROMPT))
+                .append(escape(systemPrompt))
                 .append("\"}");
 
         for (String[] entry : history) {
             messages.append(",{\"role\":\"").append(entry[0]).append("\",")
                     .append("\"content\":\"").append(escape(entry[1])).append("\"}");
         }
-
         messages.append("]");
 
         return "{"
@@ -86,7 +98,6 @@ public class GroqService {
                 + "}";
     }
 
-    // Groq response format: choices[0].message.content
     private String extractReply(String json) {
         int contentIndex = json.indexOf("\"content\":");
         if (contentIndex == -1)
@@ -102,16 +113,11 @@ public class GroqService {
     }
 
     private String escape(String s) {
-        return s.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
+        return s.replace("\\", "\\\\").replace("\"", "\\\"")
+                .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
     }
 
     private String unescape(String s) {
-        return s.replace("\\n", "\n")
-                .replace("\\\"", "\"")
-                .replace("\\\\", "\\");
+        return s.replace("\\n", "\n").replace("\\\"", "\"").replace("\\\\", "\\");
     }
 }

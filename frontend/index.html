@@ -5,23 +5,39 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Weather Assistant</title>
-  <meta name="description"
-    content="AI-powered weather chatbot with hourly forecasts, powered by Groq and OpenWeatherMap." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 
 <body>
-
   <div class="app">
 
-    <!-- ── Chat panel ─────────────────────────────── -->
+    <!-- ── Left sidebar: tab switcher ───────────────────────────────────── -->
+    <div class="sidebar">
+      <div class="sidebar-logo">AI<br><span>Suite</span></div>
+      <nav class="sidebar-nav">
+        <a class="sidebar-tab active" href="/" title="Weather">
+          <span class="tab-icon">🌤️</span>
+          <span class="tab-label">Weather</span>
+        </a>
+        <a class="sidebar-tab" href="/currency" title="Currency">
+          <span class="tab-icon">💱</span>
+          <span class="tab-label">Currency</span>
+        </a>
+      </nav>
+    </div>
+
+    <!-- ── Chat panel ────────────────────────────────────────────────────── -->
     <div class="chat-panel">
       <div class="chat-header">
         <div class="status-dot"></div>
         <h1>Weather Assistant</h1>
-        <small>Groq · OpenWeatherMap</small>
+        <small id="username-display" style="margin-left:auto;margin-right:8px"></small>
+        <button onclick="doLogout()"
+          style="font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:6px;background:none;color:var(--muted);cursor:pointer;font-family:inherit"
+          onmouseover="this.style.color='#f87171';this.style.borderColor='#f87171'"
+          onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">Logout</button>
       </div>
 
       <div id="log"></div>
@@ -41,18 +57,18 @@
       </div>
     </div>
 
-    <!-- ── History panel ──────────────────────────── -->
+    <!-- ── History panel ─────────────────────────────────────────────────── -->
     <div class="history-panel">
       <div class="history-header">
         <h2>Chat History</h2>
-        <div style="display: flex; gap: 8px;">
-          <button id="theme-btn" onclick="toggleTheme()" title="Toggle Dark/Light Mode">☀️</button>
+        <div style="display:flex;gap:8px;">
+          <button id="theme-btn" onclick="toggleTheme()" title="Toggle theme">☀️</button>
           <button id="clear-btn" onclick="clearHistory()">Clear</button>
         </div>
       </div>
-      <div class="persist-badge">Saved locally — survives server restarts</div>
+      <div class="persist-badge">Saved locally — weather history only</div>
       <div class="hist-search-wrap">
-        <input type="text" id="hist-search" class="hist-search" placeholder="Search history..."
+        <input type="text" id="hist-search" class="hist-search" placeholder="Search history…"
           oninput="renderHistory(this.value)" />
       </div>
       <div id="history-list"></div>
@@ -61,25 +77,19 @@
   </div>
 
   <script>
+    const PAGE = 'weather';
+    const THEME_KEY = 'app_theme';
+
     const log = document.getElementById('log');
     const input = document.getElementById('input');
     const btn = document.getElementById('btn');
     const historyList = document.getElementById('history-list');
+    const themeBtn = document.getElementById('theme-btn');
 
-    const STORAGE_KEY = 'weather_chat_history';
-
-    /* ── Helpers ──────────────────────────────────── */
-
-    function now() {
-      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-
-    function nowFull() {
-      return new Date().toLocaleString([], {
-        month: 'short', day: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-      });
-    }
+    // ── Helpers ─────────────────────────────────────────────────────────────────
+    function now() { return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+    function nowFull() { return new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+    function escHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
     function getWeatherEmoji(desc) {
       const d = desc.toLowerCase();
@@ -87,32 +97,24 @@
       if (d.includes('drizzle') || d.includes('rain')) return '🌧️';
       if (d.includes('snow')) return '❄️';
       if (d.includes('clear')) return '☀️';
-      if (d.includes('clouds')) {
-        if (d.includes('few') || d.includes('scattered')) return '🌤️';
-        return '☁️';
-      }
-      if (d.includes('mist') || d.includes('smoke') || d.includes('haze') || d.includes('fog')) return '🌫️';
+      if (d.includes('few') || d.includes('scattered')) return '🌤️';
+      if (d.includes('clouds')) return '☁️';
+      if (d.includes('mist') || d.includes('haze') || d.includes('fog')) return '🌫️';
       return '🌡️';
     }
 
-    /* ── Chat rendering ───────────────────────────── */
-
+    // ── Chat rendering ───────────────────────────────────────────────────────────
     function addMsg(role, html, time) {
       const outer = document.createElement('div');
       outer.className = 'msg ' + role;
-
-      const ts = time || now();
-
       outer.innerHTML = `
-      <div class="avatar">${role === 'user' ? 'You' : 'AI'}</div>
-      <div class="bubble-wrap">
-        <span class="ts">${ts}</span>
-        <div class="bubble" id="bubble-${Date.now()}">${html}</div>
-      </div>`;
-
+        <div class="avatar">${role === 'user' ? 'You' : 'AI'}</div>
+        <div class="bubble-wrap">
+          <span class="ts">${time || now()}</span>
+          <div class="bubble">${html}</div>
+        </div>`;
       log.appendChild(outer);
       log.scrollTop = log.scrollHeight;
-      return outer.querySelector('.bubble');
     }
 
     function typingBubble() {
@@ -120,220 +122,186 @@
       outer.className = 'msg bot';
       outer.id = 'typing-indicator';
       outer.innerHTML = `
-      <div class="avatar">AI</div>
-      <div class="bubble-wrap">
-        <span class="ts">${now()}</span>
-        <div class="bubble">
-          <div class="typing-dots"><span></span><span></span><span></span></div>
-        </div>
-      </div>`;
+        <div class="avatar">AI</div>
+        <div class="bubble-wrap">
+          <span class="ts">${now()}</span>
+          <div class="bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>
+        </div>`;
       log.appendChild(outer);
       log.scrollTop = log.scrollHeight;
       return outer;
     }
 
-    /* ── Persistence ──────────────────────────────── */
-
-    function loadHistory() {
-      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
-      catch { return []; }
-    }
-
-    function saveHistory(entries) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(-60)));
-    }
-
-    function renderHistory(query = '') {
-      let entries = loadHistory().map((e, idx) => ({ ...e, originalIndex: idx }));
-      if (query) {
-        const q = query.toLowerCase();
-        entries = entries.filter(e => e.question.toLowerCase().includes(q) || e.answer.toLowerCase().includes(q));
-      }
-      historyList.innerHTML = '';
-
-      if (entries.length === 0) {
-        historyList.innerHTML = query
-          ? '<p class="hist-empty">No matches found for your search.</p>'
-          : '<p class="hist-empty">No history yet.<br>Start chatting to see<br>your conversations here.</p>';
-        return;
-      }
-
-      [...entries].reverse().forEach((entry) => {
-        const item = document.createElement('div');
-        item.className = 'hist-item';
-        item.innerHTML = `
-        <div class="hist-time">
-          <span>${entry.time}</span>
-          <button class="hist-del" title="Delete this conversation">✖</button>
-        </div>
-        <div class="hist-q">${escHtml(entry.question)}</div>
-        <div class="hist-a">${escHtml(entry.answer)}</div>`;
-        item.title = 'Click to view full answer in chat';
-
-        const delBtn = item.querySelector('.hist-del');
-        delBtn.onclick = (e) => {
-          e.stopPropagation();
-          deleteHistoryItem(entry.originalIndex);
-        };
-
-        item.onclick = () => {
-          addMsg('user', escHtml(entry.question), entry.time);
-          const completeBotHtml = buildBotMessageHtml(entry.answer, entry.weatherData);
-          addMsg('bot', completeBotHtml, entry.time);
-        };
-        historyList.appendChild(item);
-      });
-    }
-
-    function deleteHistoryItem(index) {
-      const entries = loadHistory();
-      entries.splice(index, 1);
-      saveHistory(entries);
-      const searchBox = document.getElementById('hist-search');
-      renderHistory(searchBox ? searchBox.value : '');
-    }
-
-    function addToHistory(question, answer, weatherData = null) {
-      const entries = loadHistory();
-      entries.push({ time: nowFull(), question, answer, weatherData });
-      saveHistory(entries);
-      const searchBox = document.getElementById('hist-search');
-      renderHistory(searchBox ? searchBox.value : '');
-    }
-
-    function clearHistory() {
-      if (!confirm('Clear all chat history?')) return;
-      localStorage.removeItem(STORAGE_KEY);
-      const searchBox = document.getElementById('hist-search');
-      if (searchBox) searchBox.value = '';
-      renderHistory();
-    }
-
-    function escHtml(str) {
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
-    function buildBotMessageHtml(replyText, wd) {
+    function buildBotHtml(replyText, wd) {
       let weatherHtml = '';
       if (wd) {
         if (wd.forecast) {
-          let items = wd.forecast.map(f => `
-              <div class="wc-forecast-item">
-                  <div class="wc-forecast-time">${f.time.split(' ')[1].substring(0, 5)}</div>
-                  <div class="wc-forecast-emoji" style="font-size: 24px; margin: 4px 0;">${getWeatherEmoji(f.description)}</div>
-                  <div class="wc-forecast-temp">${Math.round(f.tempCelsius)}°</div>
-                  <div class="wc-forecast-desc" title="${f.description}">${f.description}</div>
-              </div>
-          `).join('');
+          const items = wd.forecast.map(f => `
+            <div class="wc-forecast-item">
+              <div class="wc-forecast-time">${f.time.split(' ')[1].substring(0, 5)}</div>
+              <div style="font-size:24px;margin:4px 0">${getWeatherEmoji(f.description)}</div>
+              <div class="wc-forecast-temp">${Math.round(f.tempCelsius)}°</div>
+              <div class="wc-forecast-desc" title="${f.description}">${f.description}</div>
+            </div>`).join('');
           weatherHtml = `
-              <div class="weather-card">
-                  <div class="wc-header">
-                      <div class="wc-city">${wd.city} Forecast</div>
-                  </div>
-                  <div class="wc-forecast">${items}</div>
-              </div>`;
+            <div class="weather-card">
+              <div class="wc-header"><div class="wc-city">${wd.city} Forecast</div></div>
+              <div class="wc-forecast">${items}</div>
+            </div>`;
         } else {
           weatherHtml = `
-              <div class="weather-card">
-                  <div class="wc-header">
-                      <div class="wc-city">${wd.city}</div>
-                      <div class="wc-desc">${wd.description}</div>
-                  </div>
-                  <div class="wc-main" style="display: flex; justify-content: space-between; align-items: center; margin: 8px 0;">
-                      <div class="wc-temp">${Math.round(wd.tempCelsius)}°C</div>
-                      <div class="wc-large-emoji" style="font-size: 44px; line-height: 1;">${getWeatherEmoji(wd.description)}</div>
-                  </div>
-                  <div class="wc-details">
-                      <span>💧 ${wd.humidity}%</span>
-                      <span>💨 ${wd.windSpeed} m/s</span>
-                      <span>Feels like ${Math.round(wd.feelsLike)}°C</span>
-                  </div>
-              </div>`;
+            <div class="weather-card">
+              <div class="wc-header">
+                <div class="wc-city">${wd.city}</div>
+                <div class="wc-desc">${wd.description}</div>
+              </div>
+              <div class="wc-main" style="display:flex;justify-content:space-between;align-items:center;margin:8px 0">
+                <div class="wc-temp">${Math.round(wd.tempCelsius)}°C</div>
+                <div style="font-size:44px;line-height:1">${getWeatherEmoji(wd.description)}</div>
+              </div>
+              <div class="wc-details">
+                <span>💧 ${wd.humidity}%</span>
+                <span>💨 ${wd.windSpeed} m/s</span>
+                <span>Feels like ${Math.round(wd.feelsLike)}°C</span>
+              </div>
+            </div>`;
         }
       }
       return weatherHtml + `<div>${escHtml(replyText)}</div>`;
     }
 
-    /* ── Send logic ───────────────────────────────── */
+    // ── Server-side history ──────────────────────────────────────────────────────
+    async function loadHistory() {
+      try {
+        const res = await fetch('/history?page=' + PAGE);
+        if (!res.ok) return [];
+        return await res.json();
+      } catch { return []; }
+    }
 
+    async function addToHistory(question, answer, weatherData = null) {
+      try {
+        await fetch('/history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ page: PAGE, question, answer, extra: weatherData })
+        });
+        renderHistory(document.getElementById('hist-search').value);
+      } catch { }
+    }
+
+    async function deleteHistoryItem(id) {
+      try {
+        await fetch('/history?id=' + id, { method: 'DELETE' });
+        renderHistory(document.getElementById('hist-search').value);
+      } catch { }
+    }
+
+    async function clearHistory() {
+      if (!confirm('Clear all weather chat history?')) return;
+      try {
+        await fetch('/history?page=' + PAGE, { method: 'DELETE' });
+        document.getElementById('hist-search').value = '';
+        renderHistory();
+      } catch { }
+    }
+
+    async function renderHistory(query = '') {
+      let entries = await loadHistory();
+      if (query) {
+        const q = query.toLowerCase();
+        entries = entries.filter(e =>
+          e.question.toLowerCase().includes(q) || e.answer.toLowerCase().includes(q));
+      }
+      historyList.innerHTML = '';
+      if (!entries.length) {
+        historyList.innerHTML = query
+          ? '<p class="hist-empty">No matches found.</p>'
+          : '<p class="hist-empty">No history yet.<br>Start chatting to see<br>your conversations here.</p>';
+        return;
+      }
+      [...entries].reverse().forEach(entry => {
+        const item = document.createElement('div');
+        item.className = 'hist-item';
+        item.innerHTML = `
+          <div class="hist-time">
+            <span>${escHtml(entry.time)}</span>
+            <button class="hist-del" title="Delete">✖</button>
+          </div>
+          <div class="hist-q">${escHtml(entry.question)}</div>
+          <div class="hist-a">${escHtml(entry.answer)}</div>`;
+        item.querySelector('.hist-del').onclick = e => {
+          e.stopPropagation();
+          deleteHistoryItem(entry.id);
+        };
+        item.onclick = () => {
+          addMsg('user', escHtml(entry.question), entry.time);
+          addMsg('bot', buildBotHtml(entry.answer, entry.extra), entry.time);
+        };
+        historyList.appendChild(item);
+      });
+    }
+
+    async function doLogout() {
+      await fetch('/auth/logout', { method: 'POST' });
+      window.location.href = '/login';
+    }
+
+    // ── Send ─────────────────────────────────────────────────────────────────────
     async function send() {
       const text = input.value.trim();
       if (!text) return;
       input.value = '';
-
-      const sentTime = now();
-      addMsg('user', escHtml(text), sentTime);
-
+      addMsg('user', escHtml(text));
       const indicator = typingBubble();
       btn.disabled = true;
 
-      let replyText = '';
-      let rawText = '';
-      let weatherDataPayload = null;
-
-      const startTime = Date.now();
-
+      let rawText = '', weatherData = null;
+      const t0 = Date.now();
       try {
-        const res = await fetch('/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text })
-        });
+        const res = await fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: text }) });
         const data = await res.json();
         rawText = data.reply || data.error || 'No response.';
-        weatherDataPayload = data.weatherData || null;
-      } catch (e) {
-        rawText = 'Could not reach the server.';
-      }
+        weatherData = data.weatherData || null;
+      } catch { rawText = 'Could not reach the server.'; }
 
-      const elapsedTime = Date.now() - startTime;
-      const minimumDelay = 600;
-      if (elapsedTime < minimumDelay) {
-        await new Promise(resolve => setTimeout(resolve, minimumDelay - elapsedTime));
-      }
+      const elapsed = Date.now() - t0;
+      if (elapsed < 600) await new Promise(r => setTimeout(r, 600 - elapsed));
 
       indicator.remove();
-
-      const botMsgHtml = buildBotMessageHtml(rawText, weatherDataPayload);
-
-      addMsg('bot', botMsgHtml);
-      addToHistory(text, rawText, weatherDataPayload);
-
+      addMsg('bot', buildBotHtml(rawText, weatherData));
+      addToHistory(text, rawText, weatherData);
       btn.disabled = false;
       input.focus();
     }
 
-    function quickSend(text) {
-      input.value = text;
-      send();
-    }
+    function quickSend(text) { input.value = text; send(); }
 
-    /* ── Theme Toggle ─────────────────────────────── */
-
-    const themeBtn = document.getElementById('theme-btn');
-    const THEME_KEY = 'weather_chat_theme';
-
+    // ── Theme ────────────────────────────────────────────────────────────────────
     function initTheme() {
-      const saved = localStorage.getItem(THEME_KEY);
-      if (saved === 'light') {
+      if (localStorage.getItem(THEME_KEY) === 'light') {
         document.body.classList.add('light-mode');
         themeBtn.textContent = '🌙';
-      } else {
-        themeBtn.textContent = '☀️';
       }
     }
-
     function toggleTheme() {
-      const isLight = document.body.classList.toggle('light-mode');
-      themeBtn.textContent = isLight ? '🌙' : '☀️';
-      localStorage.setItem(THEME_KEY, isLight ? 'light' : 'dark');
+      const light = document.body.classList.toggle('light-mode');
+      themeBtn.textContent = light ? '🌙' : '☀️';
+      localStorage.setItem(THEME_KEY, light ? 'light' : 'dark');
     }
 
-    /* ── Boot ─────────────────────────────────────── */
-
+    // ── Boot ─────────────────────────────────────────────────────────────────────
     initTheme();
-    renderHistory();
-    addMsg('bot', 'Hi! Ask me about the weather anywhere in the world.\n\nTry: "What\'s the weather in Paris?" or "Weather in Tokyo for the next 6 hours?"');
+    (async () => {
+      try {
+        const res = await fetch('/auth/me');
+        const data = await res.json();
+        if (!data.ok) { window.location.href = '/login'; return; }
+        document.getElementById('username-display').textContent = '👤 ' + data.username;
+      } catch { }
+      renderHistory();
+      addMsg('bot', 'Hi! Ask me about the weather anywhere in the world.\n\nTry: "What\'s the weather in Paris?" or "Weather in Tokyo for the next 6 hours?"');
+    })();
   </script>
 </body>
 

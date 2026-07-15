@@ -11,6 +11,7 @@ public class ChatHandler implements HttpHandler {
 
     private final WeatherService weatherService;
     private final GroqService groqService;
+    private final SessionManager sessions;
 
     private static final String[] TRAILING_NOISE = {
             "right now", "today", "currently", "at the moment",
@@ -26,9 +27,10 @@ public class ChatHandler implements HttpHandler {
             "(?:in\\s+the\\s+)?next\\s+(\\d+)\\s+hours?",
             Pattern.CASE_INSENSITIVE);
 
-    public ChatHandler(WeatherService weatherService, GroqService groqService) {
+    public ChatHandler(WeatherService weatherService, GroqService groqService, SessionManager sessions) {
         this.weatherService = weatherService;
         this.groqService = groqService;
+        this.sessions = sessions;
     }
 
     @Override
@@ -38,6 +40,18 @@ public class ChatHandler implements HttpHandler {
 
         if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) {
             sendResponse(exchange, 405, "{\"error\":\"Method not allowed\"}");
+            return;
+        }
+
+        // Auth check
+        try {
+            String token = sessions.extractToken(exchange);
+            if (sessions.validateSession(token) == -1) {
+                sendResponse(exchange, 401, "{\"error\":\"Not logged in.\"}");
+                return;
+            }
+        } catch (java.sql.SQLException e) {
+            sendResponse(exchange, 500, "{\"error\":\"Session error\"}");
             return;
         }
 

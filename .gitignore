@@ -1,7 +1,8 @@
-#.gitignore
+# .gitignore
 .env
 *.class
 out/
 target/
 build/
+app.db
 run.bat

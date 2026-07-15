@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Currency Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <div class="app">
+
+        <!-- ── Left sidebar ─────────────────────────────────────────────────── -->
+        <div class="sidebar">
+            <div class="sidebar-logo">AI<br><span>Suite</span></div>
+            <nav class="sidebar-nav">
+                <a class="sidebar-tab" href="/" title="Weather">
+                    <span class="tab-icon">🌤️</span>
+                    <span class="tab-label">Weather</span>
+                </a>
+                <a class="sidebar-tab active" href="/currency" title="Currency">
+                    <span class="tab-icon">💱</span>
+                    <span class="tab-label">Currency</span>
+                </a>
+            </nav>
+        </div>
+
+        <!-- ── Chat panel ────────────────────────────────────────────────────── -->
+        <div class="chat-panel">
+            <div class="chat-header">
+                <div class="status-dot" style="background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.18)"></div>
+                <h1>Currency Assistant</h1>
+                <small id="username-display" style="margin-left:auto;margin-right:8px"></small>
+                <button onclick="doLogout()"
+                    style="font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:6px;background:none;color:var(--muted);cursor:pointer;font-family:inherit"
+                    onmouseover="this.style.color='#f87171';this.style.borderColor='#f87171'"
+                    onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">Logout</button>
+            </div>
+
+            <div id="log"></div>
+
+            <div class="chips">
+                <span class="chip" onclick="quickSend('Convert 100 USD to EUR')">💵→💶 USD/EUR</span>
+                <span class="chip" onclick="quickSend('What is the exchange rate for GBP to JPY?')">💷→¥ GBP/JPY</span>
+                <span class="chip" onclick="quickSend('How much is 500 euros in Vietnamese dong?')">💶→🇻🇳
+                    EUR/VND</span>
+                <span class="chip" onclick="quickSend('Convert 1000 AUD to USD')">🇦🇺→💵 AUD/USD</span>
+                <span class="chip" onclick="quickSend('What is 1 Bitcoin worth in USD?')">₿→💵 BTC/USD</span>
+            </div>
+
+            <div class="input-row">
+                <input id="input" type="text" placeholder="Ask about exchange rates or conversions…" autocomplete="off"
+                    onkeydown="if(event.key==='Enter') send()" />
+                <button id="btn" onclick="send()">Send</button>
+            </div>
+        </div>
+
+        <!-- ── History panel ─────────────────────────────────────────────────── -->
+        <div class="history-panel">
+            <div class="history-header">
+                <h2>Chat History</h2>
+                <div style="display:flex;gap:8px;">
+                    <button id="theme-btn" onclick="toggleTheme()" title="Toggle theme">☀️</button>
+                    <button id="clear-btn" onclick="clearHistory()">Clear</button>
+                </div>
+            </div>
+            <div class="persist-badge"
+                style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.2);color:#fbbf24;">
+                Saved locally — currency history only
+            </div>
+            <div class="hist-search-wrap">
+                <input type="text" id="hist-search" class="hist-search" placeholder="Search history…"
+                    oninput="renderHistory(this.value)" />
+            </div>
+            <div id="history-list"></div>
+        </div>
+
+    </div>
+
+    <script>
+        const PAGE = 'currency';
+        const THEME_KEY = 'app_theme';
+
+        const log = document.getElementById('log');
+        const input = document.getElementById('input');
+        const btn = document.getElementById('btn');
+        const historyList = document.getElementById('history-list');
+        const themeBtn = document.getElementById('theme-btn');
+
+        // ── Helpers ─────────────────────────────────────────────────────────────────
+        function now() { return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+        function nowFull() { return new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+        function escHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+        function fmtNum(n, decimals = 2) {
+            return Number(n).toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+        }
+
+        // ── Rate card builder ────────────────────────────────────────────────────────
+        function buildBotHtml(replyText, rd) {
+            let cardHtml = '';
+            if (rd) {
+                cardHtml = `
+          <div class="rate-card">
+            <div class="rc-pair">
+              <span class="rc-code">${escHtml(rd.base)}</span>
+              <span class="rc-arrow">→</span>
+              <span class="rc-code">${escHtml(rd.target)}</span>
+            </div>
+            <div class="rc-rate">
+              1 ${escHtml(rd.base)} = <strong>${fmtNum(rd.rate, 4)}</strong> ${escHtml(rd.target)}
+            </div>
+            ${rd.amount !== 1 ? `
+            <div class="rc-conversion">
+              ${fmtNum(rd.amount)} ${escHtml(rd.base)}
+              <span class="rc-eq">=</span>
+              <strong>${fmtNum(rd.converted)}</strong> ${escHtml(rd.target)}
+            </div>` : ''}
+            <div class="rc-source">Live rate · ExchangeRate-API</div>
+          </div>`;
+            }
+            return cardHtml + `<div>${escHtml(replyText)}</div>`;
+        }
+
+        // ── Chat rendering ───────────────────────────────────────────────────────────
+        function addMsg(role, html, time) {
+            const outer = document.createElement('div');
+            outer.className = 'msg ' + role;
+            outer.innerHTML = `
+        <div class="avatar">${role === 'user' ? 'You' : 'AI'}</div>
+        <div class="bubble-wrap">
+          <span class="ts">${time || now()}</span>
+          <div class="bubble">${html}</div>
+        </div>`;
+            log.appendChild(outer);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function typingBubble() {
+            const outer = document.createElement('div');
+            outer.className = 'msg bot';
+            outer.id = 'typing-indicator';
+            outer.innerHTML = `
+        <div class="avatar">AI</div>
+        <div class="bubble-wrap">
+          <span class="ts">${now()}</span>
+          <div class="bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>
+        </div>`;
+            log.appendChild(outer);
+            log.scrollTop = log.scrollHeight;
+            return outer;
+        }
+
+        // ── Server-side history ──────────────────────────────────────────────────────
+        async function loadHistory() {
+            try {
+                const res = await fetch('/history?page=' + PAGE);
+                if (!res.ok) return [];
+                return await res.json();
+            } catch { return []; }
+        }
+
+        async function addToHistory(question, answer, rateData = null) {
+            try {
+                await fetch('/history', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ page: PAGE, question, answer, extra: rateData })
+                });
+                renderHistory(document.getElementById('hist-search').value);
+            } catch { }
+        }
+
+        async function deleteHistoryItem(id) {
+            try {
+                await fetch('/history?id=' + id, { method: 'DELETE' });
+                renderHistory(document.getElementById('hist-search').value);
+            } catch { }
+        }
+
+        async function clearHistory() {
+            if (!confirm('Clear all currency chat history?')) return;
+            try {
+                await fetch('/history?page=' + PAGE, { method: 'DELETE' });
+                document.getElementById('hist-search').value = '';
+                renderHistory();
+            } catch { }
+        }
+
+        async function renderHistory(query = '') {
+            let entries = await loadHistory();
+            if (query) {
+                const q = query.toLowerCase();
+                entries = entries.filter(e =>
+                    e.question.toLowerCase().includes(q) || e.answer.toLowerCase().includes(q));
+            }
+            historyList.innerHTML = '';
+            if (!entries.length) {
+                historyList.innerHTML = query
+                    ? '<p class="hist-empty">No matches found.</p>'
+                    : '<p class="hist-empty">No history yet.<br>Ask me to convert<br>any currency!</p>';
+                return;
+            }
+            [...entries].reverse().forEach(entry => {
+                const item = document.createElement('div');
+                item.className = 'hist-item';
+                item.innerHTML = `
+          <div class="hist-time">
+            <span>${escHtml(entry.time)}</span>
+            <button class="hist-del" title="Delete">✖</button>
+          </div>
+          <div class="hist-q">${escHtml(entry.question)}</div>
+          <div class="hist-a">${escHtml(entry.answer)}</div>`;
+                item.querySelector('.hist-del').onclick = e => {
+                    e.stopPropagation();
+                    deleteHistoryItem(entry.id);
+                };
+                item.onclick = () => {
+                    addMsg('user', escHtml(entry.question), entry.time);
+                    addMsg('bot', buildBotHtml(entry.answer, entry.extra), entry.time);
+                };
+                historyList.appendChild(item);
+            });
+        }
+
+        async function doLogout() {
+            await fetch('/auth/logout', { method: 'POST' });
+            window.location.href = '/login';
+        }
+
+        // ── Send ─────────────────────────────────────────────────────────────────────
+        async function send() {
+            const text = input.value.trim();
+            if (!text) return;
+            input.value = '';
+            addMsg('user', escHtml(text));
+            const indicator = typingBubble();
+            btn.disabled = true;
+
+            let rawText = '', rateData = null;
+            const t0 = Date.now();
+            try {
+                const res = await fetch('/currency-chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+                const data = await res.json();
+                rawText = data.reply || data.error || 'No response.';
+                rateData = data.rateData || null;
+            } catch { rawText = 'Could not reach the server.'; }
+
+            const elapsed = Date.now() - t0;
+            if (elapsed < 600) await new Promise(r => setTimeout(r, 600 - elapsed));
+
+            indicator.remove();
+            addMsg('bot', buildBotHtml(rawText, rateData));
+            addToHistory(text, rawText, rateData);
+            btn.disabled = false;
+            input.focus();
+        }
+
+        function quickSend(text) { input.value = text; send(); }
+
+        // ── Theme ────────────────────────────────────────────────────────────────────
+        function initTheme() {
+            if (localStorage.getItem(THEME_KEY) === 'light') {
+                document.body.classList.add('light-mode');
+                themeBtn.textContent = '🌙';
+            }
+        }
+        function toggleTheme() {
+            const light = document.body.classList.toggle('light-mode');
+            themeBtn.textContent = light ? '🌙' : '☀️';
+            localStorage.setItem(THEME_KEY, light ? 'light' : 'dark');
+        }
+
+        // ── Boot ─────────────────────────────────────────────────────────────────────
+        initTheme();
+        (async () => {
+            try {
+                const res = await fetch('/auth/me');
+                const data = await res.json();
+                if (!data.ok) { window.location.href = '/login'; return; }
+                document.getElementById('username-display').textContent = '👤 ' + data.username;
+            } catch { }
+            renderHistory();
+            addMsg('bot', 'Hi! I can help with currency conversions using live exchange rates.\n\nTry: "Convert 100 USD to EUR" or "What is GBP to JPY?"');
+        })();
+    </script>
+
+    <style>
+        /* ── Rate card ────────────────────────────────────────────────────────── */
+        .rate-card {
+            background: linear-gradient(135deg, #d97706, #f59e0b);
+            color: #fff;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, .15);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-width: 320px;
+        }
+
+        .rc-pair {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            opacity: .9;
+        }
+
+        .rc-code {
+            background: rgba(255, 255, 255, .2);
+            padding: 3px 8px;
+            border-radius: 5px;
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: .5px;
+        }
+
+        .rc-arrow {
+            font-size: 16px;
+        }
+
+        .rc-rate {
+            font-size: 15px;
+            opacity: .95;
+        }
+
+        .rc-rate strong {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -.5px;
+        }
+
+        .rc-conversion {
+            border-top: 1px solid rgba(255, 255, 255, .25);
+            padding-top: 8px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .rc-conversion strong {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .rc-eq {
+            opacity: .7;
+        }
+
+        .rc-source {
+            font-size: 10px;
+            opacity: .65;
+            margin-top: 2px;
+        }
+    </style>
+</body>
+
+</html>

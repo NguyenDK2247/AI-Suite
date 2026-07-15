@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign Up — AI Suite</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/auth.css" />
+</head>
+
+<body>
+    <div class="auth-card">
+
+        <div class="auth-logo">
+            <div class="auth-logo-icon">✨</div>
+            <h1>Create an account</h1>
+            <p>Join AI Suite to save your chat history</p>
+        </div>
+
+        <div class="banner error" id="error-banner"></div>
+        <div class="banner success" id="success-banner"></div>
+
+        <div class="auth-form">
+            <div class="field">
+                <label for="username">Username</label>
+                <input id="username" type="text" placeholder="your_username" autocomplete="username"
+                    autocapitalize="none" oninput="validateUsername()" />
+                <span class="strength-label" id="username-hint"></span>
+            </div>
+
+            <div class="field">
+                <label for="password">Password</label>
+                <input id="password" type="password" placeholder="Min. 8 characters" autocomplete="new-password"
+                    oninput="updateStrength()" />
+                <div class="strength-bar">
+                    <div class="strength-fill" id="strength-fill"></div>
+                </div>
+                <span class="strength-label" id="strength-label"></span>
+            </div>
+
+            <div class="field">
+                <label for="confirm">Confirm Password</label>
+                <input id="confirm" type="password" placeholder="Repeat your password" autocomplete="new-password"
+                    oninput="checkMatch()" />
+                <span class="strength-label" id="confirm-hint"></span>
+            </div>
+
+            <button class="auth-btn" id="signup-btn" onclick="doSignup()">Create account</button>
+        </div>
+
+        <div class="auth-footer">
+            Already have an account? <a href="/login">Sign in</a>
+        </div>
+
+    </div>
+
+    <script>
+        const usernameEl = document.getElementById('username');
+        const passwordEl = document.getElementById('password');
+        const confirmEl = document.getElementById('confirm');
+        const signupBtn = document.getElementById('signup-btn');
+        const errorBanner = document.getElementById('error-banner');
+        const successBanner = document.getElementById('success-banner');
+        const strengthFill = document.getElementById('strength-fill');
+        const strengthLabel = document.getElementById('strength-label');
+        const usernameHint = document.getElementById('username-hint');
+        const confirmHint = document.getElementById('confirm-hint');
+
+        confirmEl.addEventListener('keydown', e => { if (e.key === 'Enter') doSignup(); });
+
+        // ── Username validation hint ──────────────────────────────────────────────
+        function validateUsername() {
+            const val = usernameEl.value.trim();
+            if (!val) { usernameHint.textContent = ''; return; }
+            if (/^[A-Za-z0-9_]{3,20}$/.test(val)) {
+                usernameHint.style.color = 'var(--green)';
+                usernameHint.textContent = '✓ Looks good';
+                usernameEl.classList.remove('error');
+            } else {
+                usernameHint.style.color = 'var(--red)';
+                usernameHint.textContent = '3–20 chars: letters, numbers, underscores only';
+                usernameEl.classList.add('error');
+            }
+        }
+
+        // ── Password strength meter ───────────────────────────────────────────────
+        function updateStrength() {
+            const pw = passwordEl.value;
+            let score = 0;
+            if (pw.length >= 8) score++;
+            if (pw.length >= 12) score++;
+            if (/[A-Z]/.test(pw)) score++;
+            if (/[0-9]/.test(pw)) score++;
+            if (/[^A-Za-z0-9]/.test(pw)) score++;
+
+            const pct = (score / 5) * 100;
+            const colors = ['#f87171', '#fb923c', '#facc15', '#4ade80', '#22c55e'];
+            const labels = ['Very weak', 'Weak', 'Fair', 'Strong', 'Very strong'];
+
+            strengthFill.style.width = pct + '%';
+            strengthFill.style.background = colors[score - 1] || 'var(--border)';
+            strengthLabel.textContent = pw.length ? labels[score - 1] || '' : '';
+            strengthLabel.style.color = colors[score - 1] || 'var(--muted)';
+
+            if (confirmEl.value) checkMatch();
+        }
+
+        // ── Confirm match hint ────────────────────────────────────────────────────
+        function checkMatch() {
+            if (!confirmEl.value) { confirmHint.textContent = ''; return; }
+            if (confirmEl.value === passwordEl.value) {
+                confirmHint.style.color = 'var(--green)';
+                confirmHint.textContent = '✓ Passwords match';
+                confirmEl.classList.remove('error');
+            } else {
+                confirmHint.style.color = 'var(--red)';
+                confirmHint.textContent = 'Passwords do not match';
+                confirmEl.classList.add('error');
+            }
+        }
+
+        function showError(msg) { errorBanner.textContent = msg; errorBanner.className = 'banner error show'; successBanner.className = 'banner success'; }
+        function showSuccess(msg) { successBanner.textContent = msg; successBanner.className = 'banner success show'; errorBanner.className = 'banner error'; }
+        function clearBanners() { errorBanner.className = 'banner error'; successBanner.className = 'banner success'; }
+
+        // ── Submit ────────────────────────────────────────────────────────────────
+        async function doSignup() {
+            clearBanners();
+            const username = usernameEl.value.trim();
+            const password = passwordEl.value;
+            const confirm = confirmEl.value;
+
+            if (!username) { showError('Please choose a username.'); usernameEl.focus(); return; }
+            if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) { showError('Invalid username format.'); usernameEl.focus(); return; }
+            if (password.length < 8) { showError('Password must be at least 8 chars.'); passwordEl.focus(); return; }
+            if (password !== confirm) { showError('Passwords do not match.'); confirmEl.focus(); return; }
+
+            signupBtn.disabled = true;
+            signupBtn.textContent = 'Creating account…';
+
+            try {
+                const res = await fetch('/auth/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+
+                if (data.ok) {
+                    showSuccess('Account created! Redirecting…');
+                    setTimeout(() => window.location.href = '/', 900);
+                } else {
+                    showError(data.error || 'Sign up failed.');
+                    signupBtn.disabled = false;
+                    signupBtn.textContent = 'Create account';
+                }
+            } catch {
+                showError('Could not reach the server. Please try again.');
+                signupBtn.disabled = false;
+                signupBtn.textContent = 'Create account';
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -25,6 +25,7 @@
     --avatar-bot-color: var(--accent2);
     --avatar-user-bg: rgba(79, 70, 229, .25);
     --avatar-user-color: #a5b4fc;
+    --sidebar-w: 72px;
 }
 
 body.light-mode {
@@ -63,12 +64,12 @@ body {
     padding: 1rem;
 }
 
-/* ── App shell ─────────────────────────────── */
+/* ── App shell ──────────────────────────────────────────────────────────────── */
 .app {
     display: grid;
-    grid-template-columns: 1fr 320px;
+    grid-template-columns: var(--sidebar-w) 1fr 300px;
     width: 100%;
-    max-width: 1020px;
+    max-width: 1080px;
     height: 680px;
     border-radius: var(--radius);
     overflow: hidden;
@@ -76,7 +77,81 @@ body {
     box-shadow: 0 24px 80px rgba(0, 0, 0, .55);
 }
 
-/* ── Left panel: chat ──────────────────────── */
+/* ── Sidebar ────────────────────────────────────────────────────────────────── */
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    padding: 16px 0;
+    gap: 8px;
+}
+
+.sidebar-logo {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent2);
+    text-align: center;
+    letter-spacing: .5px;
+    line-height: 1.3;
+    margin-bottom: 12px;
+    padding: 0 8px;
+}
+
+.sidebar-logo span {
+    font-size: 9px;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    padding: 0 8px;
+}
+
+.sidebar-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 4px;
+    border-radius: 10px;
+    text-decoration: none;
+    color: var(--muted);
+    transition: background .15s, color .15s;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.sidebar-tab:hover {
+    background: var(--surface2);
+    color: var(--text);
+}
+
+.sidebar-tab.active {
+    background: rgba(99, 102, 241, .15);
+    color: var(--accent2);
+    border-color: rgba(99, 102, 241, .25);
+}
+
+.tab-icon {
+    font-size: 20px;
+    line-height: 1;
+}
+
+.tab-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .3px;
+}
+
+/* ── Chat panel ─────────────────────────────────────────────────────────────── */
 .chat-panel {
     display: flex;
     flex-direction: column;
@@ -270,7 +345,7 @@ body {
     }
 }
 
-/* city chips */
+/* chips */
 .chips {
     display: flex;
     flex-wrap: wrap;
@@ -348,7 +423,7 @@ body {
     cursor: default;
 }
 
-/* ── Right panel: history ──────────────────── */
+/* ── History panel ──────────────────────────────────────────────────────────── */
 .history-panel {
     display: flex;
     flex-direction: column;
@@ -469,7 +544,7 @@ body {
 }
 
 .hist-item:hover .hist-del {
-    opacity: 0.6;
+    opacity: .6;
 }
 
 .hist-del:hover {
@@ -513,7 +588,6 @@ body {
     line-height: 1.8;
 }
 
-/* persistence badge */
 .persist-badge {
     margin: 0 12px 10px;
     background: rgba(99, 102, 241, .08);
@@ -559,21 +633,18 @@ body {
     border-color: var(--accent);
 }
 
-/* Weather Card & Voice UI */
+/* ── Weather card ───────────────────────────────────────────────────────────── */
 .weather-card {
     background: linear-gradient(135deg, var(--accent), var(--accent2));
     color: #fff;
     border-radius: 12px;
     padding: 16px;
     margin-bottom: 12px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-    font-family: 'Inter', sans-serif;
-    /* Force normalization to bypass parent bubble styling overrides */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, .15);
     line-height: 1.2;
     width: 100%;
     min-width: 260px;
     max-width: 340px;
-    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -588,17 +659,13 @@ body {
 .wc-city {
     font-weight: 700;
     font-size: 16px;
-    letter-spacing: -0.2px;
+    letter-spacing: -.2px;
 }
 
 .wc-desc {
     font-size: 12px;
     text-transform: capitalize;
-    opacity: 0.9;
-}
-
-.wc-main {
-    margin: 4px 0;
+    opacity: .9;
 }
 
 .wc-temp {
@@ -612,8 +679,8 @@ body {
     flex-wrap: wrap;
     gap: 12px;
     font-size: 12px;
-    opacity: 0.95;
-    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    opacity: .95;
+    border-top: 1px solid rgba(255, 255, 255, .2);
     padding-top: 10px;
 }
 
@@ -625,25 +692,21 @@ body {
 }
 
 .wc-forecast-item {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, .15);
     padding: 10px 6px;
     border-radius: 8px;
     min-width: 85px;
     height: 125px;
-    /* Bumped up slightly to 125px for the emoji */
     flex-shrink: 0;
-
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     align-items: center;
-    box-sizing: border-box;
 }
 
 .wc-forecast-time {
     font-size: 10px;
-    opacity: 0.9;
-    margin-bottom: 4px;
+    opacity: .9;
 }
 
 .wc-forecast-temp {
@@ -653,16 +716,13 @@ body {
 
 .wc-forecast-desc {
     font-size: 10px;
-    opacity: 0.8;
+    opacity: .8;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 75px;
-    /* Matches our new wider box */
     text-align: center;
-    /* Centers the text inside the block */
     width: 100%;
-    /* Allows centering across the parent block */
 }
 
 .wc-forecast::-webkit-scrollbar {
@@ -670,11 +730,11 @@ body {
 }
 
 .wc-forecast::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.1);
+    background: rgba(0, 0, 0, .1);
     border-radius: 4px;
 }
 
 .wc-forecast::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, .4);
     border-radius: 4px;
 }
