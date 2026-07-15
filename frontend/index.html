@@ -90,6 +90,10 @@
     function now() { return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
     function nowFull() { return new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
     function escHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function utcToLocal(dtTxt) {
+      const date = new Date(dtTxt.replace(' ', 'T') + 'Z');
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
 
     function getWeatherEmoji(desc) {
       const d = desc.toLowerCase();
@@ -138,7 +142,7 @@
         if (wd.forecast) {
           const items = wd.forecast.map(f => `
             <div class="wc-forecast-item">
-              <div class="wc-forecast-time">${f.time.split(' ')[1].substring(0, 5)}</div>
+              <div class="wc-forecast-time">${utcToLocal(f.time)}</div>
               <div style="font-size:24px;margin:4px 0">${getWeatherEmoji(f.description)}</div>
               <div class="wc-forecast-temp">${Math.round(f.tempCelsius)}°</div>
               <div class="wc-forecast-desc" title="${f.description}">${f.description}</div>

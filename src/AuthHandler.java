@@ -108,7 +108,7 @@ public class AuthHandler implements HttpHandler {
         }
 
         String token = sessions.createSession(userId);
-        setSessionCookie(exchange, token);
+        setSessionCookie(exchange, token, true); // new accounts stay logged in by default
         send(exchange, 201, "{\"ok\":true,\"username\":\"" + escJson(username) + "\"}");
     }
 
@@ -144,8 +144,10 @@ public class AuthHandler implements HttpHandler {
             return;
         }
 
+        // rememberMe = true → 30 days; false → session cookie (browser close)
+        boolean rememberMe = extractBoolean(body, "rememberMe");
         String token = sessions.createSession(userId);
-        setSessionCookie(exchange, token);
+        setSessionCookie(exchange, token, rememberMe);
         send(exchange, 200, "{\"ok\":true,\"username\":\"" + escJson(username) + "\"}");
     }
 
@@ -182,9 +184,21 @@ public class AuthHandler implements HttpHandler {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-    private void setSessionCookie(HttpExchange exchange, String token) {
+    private void setSessionCookie(HttpExchange exchange, String token, boolean rememberMe) {
+        // rememberMe → 30 days; otherwise session cookie (no Max-Age = expires on
+        // browser close)
+        String maxAge = rememberMe ? "; Max-Age=2592000" : "";
         exchange.getResponseHeaders().add("Set-Cookie",
-                "session=" + token + "; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800");
+                "session=" + token + "; Path=/; HttpOnly; SameSite=Strict" + maxAge);
+    }
+
+    private boolean extractBoolean(String json, String key) {
+        String search = "\"" + key + "\":";
+        int i = json.indexOf(search);
+        if (i == -1)
+            return false;
+        String rest = json.substring(i + search.length()).trim();
+        return rest.startsWith("true");
     }
 
     private void send(HttpExchange exchange, int status, String body) throws IOException {

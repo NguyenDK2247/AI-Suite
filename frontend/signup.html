@@ -57,6 +57,7 @@
     </div>
 
     <script>
+        const THEME_KEY = 'app_theme';
         const usernameEl = document.getElementById('username');
         const passwordEl = document.getElementById('password');
         const confirmEl = document.getElementById('confirm');
@@ -67,6 +68,12 @@
         const strengthLabel = document.getElementById('strength-label');
         const usernameHint = document.getElementById('username-hint');
         const confirmHint = document.getElementById('confirm-hint');
+
+        // ── Theme — same key as chat pages so mode syncs across all pages ────────
+        (function initTheme() {
+            if (localStorage.getItem(THEME_KEY) === 'light')
+                document.body.classList.add('light-mode');
+        })();
 
         confirmEl.addEventListener('keydown', e => { if (e.key === 'Enter') doSignup(); });
 

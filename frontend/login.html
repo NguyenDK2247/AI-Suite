@@ -33,6 +33,19 @@
                 <input id="password" type="password" placeholder="••••••••" autocomplete="current-password" />
             </div>
 
+            <!-- Remember me + theme toggle row -->
+            <div class="form-row">
+                <label class="remember-label">
+                    <span class="custom-checkbox">
+                        <input type="checkbox" id="remember-me" />
+                        <span class="checkmark"></span>
+                    </span>
+                    Remember me for 30 days
+                </label>
+                <button type="button" class="theme-toggle" id="theme-btn" onclick="toggleTheme()"
+                    title="Toggle dark/light mode"></button>
+            </div>
+
             <button class="auth-btn" id="login-btn" onclick="doLogin()">Sign in</button>
         </div>
 
@@ -43,12 +56,33 @@
     </div>
 
     <script>
+        const THEME_KEY = 'app_theme';
         const usernameEl = document.getElementById('username');
         const passwordEl = document.getElementById('password');
+        const rememberEl = document.getElementById('remember-me');
         const loginBtn = document.getElementById('login-btn');
         const errorBanner = document.getElementById('error-banner');
+        const themeBtn = document.getElementById('theme-btn');
 
-        // Allow Enter key on both fields
+        // ── Theme — runs before paint to avoid flash ─────────────────────────────
+        (function initTheme() {
+            const saved = localStorage.getItem(THEME_KEY);
+            // Default to dark; switch to light only if explicitly saved
+            if (saved === 'light') {
+                document.body.classList.add('light-mode');
+                themeBtn.textContent = '🌙';
+            } else {
+                themeBtn.textContent = '☀️';
+            }
+        })();
+
+        function toggleTheme() {
+            const light = document.body.classList.toggle('light-mode');
+            themeBtn.textContent = light ? '🌙' : '☀️';
+            localStorage.setItem(THEME_KEY, light ? 'light' : 'dark');
+        }
+
+        // ── Enter key support ────────────────────────────────────────────────────
         [usernameEl, passwordEl].forEach(el =>
             el.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); }));
 
@@ -67,6 +101,7 @@
             clearError();
             const username = usernameEl.value.trim();
             const password = passwordEl.value;
+            const rememberMe = rememberEl.checked;
 
             if (!username) { usernameEl.classList.add('error'); showError('Please enter your username.'); usernameEl.focus(); return; }
             if (!password) { passwordEl.classList.add('error'); showError('Please enter your password.'); passwordEl.focus(); return; }
@@ -78,7 +113,8 @@
                 const res = await fetch('/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                    // Pass rememberMe so the server sets the right cookie Max-Age
+                    body: JSON.stringify({ username, password, rememberMe })
                 });
                 const data = await res.json();
 

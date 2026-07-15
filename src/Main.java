@@ -103,10 +103,6 @@ public class Main {
         server.start();
 
         System.out.println("Server running at http://localhost:" + PORT);
-        System.out.println("  Login:    http://localhost:" + PORT + "/login");
-        System.out.println("  Signup:   http://localhost:" + PORT + "/signup");
-        System.out.println("  Weather:  http://localhost:" + PORT + "/");
-        System.out.println("  Currency: http://localhost:" + PORT + "/currency");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
