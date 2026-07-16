@@ -5,8 +5,7 @@ A personal, work-in-progress (WIP) AI agent and web interface designed to execut
 Currently, the agent is capable of processing weather and currency related prompts and broadcasting real-time updates. The project is actively undergoing UI enhancements, layout expansions, and visual styling updates.
 
 ## 🚀 Current Features
-* **Weather Broadcast Agent:** processes user commands and prompts to fetch and broadcast current weather conditions
-* **Currency Exchange Agent:** processes user commands and prompts to fetch and broadcast current currency exchange rates
+* **[Weather Broadcast/Currency Exchange] Agent:** processes user commands and prompts to fetch and broadcast [current weather conditions/currency exchange rates]
 * **Interactive UI:** a dedicated web interface to communicate with and monitor the AI agent
 
 ## 🛠️ Tech Stack (WIP)
