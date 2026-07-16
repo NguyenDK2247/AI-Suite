@@ -5,4 +5,5 @@ out/
 target/
 build/
 app.db
+architecture_rag.txt
 run.bat
