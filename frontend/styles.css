@@ -25,7 +25,7 @@
     --avatar-bot-color: var(--accent2);
     --avatar-user-bg: rgba(79, 70, 229, .25);
     --avatar-user-color: #a5b4fc;
-    --sidebar-w: 72px;
+    --sidebar-w: 88px;
 }
 
 body.light-mode {
@@ -737,4 +737,64 @@ body {
 .wc-forecast::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, .4);
     border-radius: 4px;
+}
+
+/* ── Sidebar timezone selector ──────────────────────────────────────────────── */
+.sidebar-tz {
+    margin-top: auto;
+    padding: 8px 6px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+    border-top: 1px solid var(--border);
+}
+
+.tz-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: .3px;
+    text-transform: uppercase;
+}
+
+/* Hidden native select — triggered programmatically when display is clicked */
+.tz-select {
+    width: 76px;
+    font-size: 10px;
+    font-family: inherit;
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 4px;
+    cursor: pointer;
+    outline: none;
+    transition: border-color .15s;
+    -webkit-appearance: auto;
+    appearance: auto;
+}
+
+.tz-select:hover,
+.tz-select:focus {
+    border-color: var(--accent);
+}
+
+/* ── Logout button ──────────────────────────────────────────────────────────── */
+.logout-btn {
+    font-size: 11px;
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: inherit;
+    transition: color .15s, border-color .15s;
+}
+
+.logout-btn:hover {
+    color: #f87171;
+    border-color: #f87171;
 }

@@ -3,7 +3,7 @@ import java.sql.*;
 /**
  * Manages the SQLite database.
  * Tables:
- * users (id, username, password_hash, created_at)
+ * users (id, username, password_hash, timezone, created_at)
  * history (id, user_id, page, question, answer, extra_json, created_at)
  * sessions (token, user_id, expires_at)
  */
@@ -16,7 +16,6 @@ public class Database {
 
     // ── Init ─────────────────────────────────────────────────────────────────────
     public static void init() throws SQLException {
-        // Load SQLite JDBC driver
         try {
             Class.forName("org.sqlite.JDBC");
         } catch (ClassNotFoundException e) {
@@ -25,13 +24,13 @@ public class Database {
 
         connection = DriverManager.getConnection(URL);
 
-        // Enable WAL mode for better concurrency
         try (Statement st = connection.createStatement()) {
             st.execute("PRAGMA journal_mode=WAL");
             st.execute("PRAGMA foreign_keys=ON");
         }
 
         createTables();
+        migrate();
         System.out.println("Database ready: " + DB_FILE);
     }
 
@@ -48,6 +47,7 @@ public class Database {
                             id            INTEGER PRIMARY KEY AUTOINCREMENT,
                             username      TEXT    NOT NULL UNIQUE COLLATE NOCASE,
                             password_hash TEXT    NOT NULL,
+                            timezone      TEXT    NOT NULL DEFAULT 'UTC',
                             created_at    TEXT    DEFAULT (datetime('now'))
                         )
                     """);
@@ -71,6 +71,17 @@ public class Database {
                             created_at TEXT    DEFAULT (datetime('now'))
                         )
                     """);
+        }
+    }
+
+    // ── Migrations — safely add columns to existing databases ────────────────────
+    private static void migrate() throws SQLException {
+        try (Statement st = connection.createStatement()) {
+            // Add timezone column if it doesn't exist yet (for existing app.db files)
+            try {
+                st.execute("ALTER TABLE users ADD COLUMN timezone TEXT NOT NULL DEFAULT 'UTC'");
+            } catch (SQLException ignored) {
+            } // column already exists — safe to ignore
         }
     }
 }

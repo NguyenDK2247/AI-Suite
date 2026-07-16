@@ -26,6 +26,13 @@
                     <span class="tab-label">Currency</span>
                 </a>
             </nav>
+            <!-- Timezone selector pinned to bottom of sidebar -->
+            <div class="sidebar-tz">
+                <div class="tz-label">🌐 TZ</div>
+                <select id="tz-select" class="tz-select" onchange="onTzChange(this.value)">
+                    <option value="">Loading…</option>
+                </select>
+            </div>
         </div>
 
         <!-- ── Chat panel ────────────────────────────────────────────────────── -->
@@ -34,10 +41,7 @@
                 <div class="status-dot" style="background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.18)"></div>
                 <h1>Currency Assistant</h1>
                 <small id="username-display" style="margin-left:auto;margin-right:8px"></small>
-                <button onclick="doLogout()"
-                    style="font-size:11px;padding:3px 10px;border:1px solid var(--border);border-radius:6px;background:none;color:var(--muted);cursor:pointer;font-family:inherit"
-                    onmouseover="this.style.color='#f87171';this.style.borderColor='#f87171'"
-                    onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">Logout</button>
+                <button onclick="doLogout()" class="logout-btn">Logout</button>
             </div>
 
             <div id="log"></div>
@@ -69,7 +73,7 @@
             </div>
             <div class="persist-badge"
                 style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.2);color:#fbbf24;">
-                Saved locally — currency history only
+                Saved per account — currency history
             </div>
             <div class="hist-search-wrap">
                 <input type="text" id="hist-search" class="hist-search" placeholder="Search history…"
@@ -83,20 +87,97 @@
     <script>
         const PAGE = 'currency';
         const THEME_KEY = 'app_theme';
+        const TZ_KEY = 'app_timezone';
 
         const log = document.getElementById('log');
         const input = document.getElementById('input');
         const btn = document.getElementById('btn');
         const historyList = document.getElementById('history-list');
         const themeBtn = document.getElementById('theme-btn');
+        const tzSelect = document.getElementById('tz-select');
 
-        // ── Helpers ─────────────────────────────────────────────────────────────────
-        function now() { return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
-        function nowFull() { return new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
-        function escHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+        // ── Timezone state ───────────────────────────────────────────────────────────
+        let currentTz = localStorage.getItem(TZ_KEY) || 'UTC';
+
+        // ── Unified time formatters ──────────────────────────────────────────────────
+        function toTZ(utcStr) {
+            const date = new Date(utcStr.replace(' ', 'T') + 'Z');
+            return date.toLocaleTimeString([], {
+                hour: '2-digit', minute: '2-digit', timeZone: currentTz
+            });
+        }
+
+        function toTZFull(utcStr) {
+            const date = new Date(utcStr.replace(' ', 'T') + 'Z');
+            return date.toLocaleString([], {
+                month: 'short', day: 'numeric',
+                hour: '2-digit', minute: '2-digit',
+                timeZone: currentTz
+            });
+        }
+
+        function nowInTZ() {
+            return new Date().toLocaleTimeString([], {
+                hour: '2-digit', minute: '2-digit', timeZone: currentTz
+            });
+        }
+
+        function escHtml(s) {
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
 
         function fmtNum(n, decimals = 2) {
-            return Number(n).toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+            return Number(n).toLocaleString(undefined, {
+                minimumFractionDigits: decimals, maximumFractionDigits: decimals
+            });
+        }
+
+        // ── Timezone dropdown ────────────────────────────────────────────────────────
+        function utcOffsetLabel(tz) {
+            try {
+                const parts = new Intl.DateTimeFormat('en', {
+                    timeZone: tz, timeZoneName: 'shortOffset'
+                }).formatToParts(new Date());
+                const offset = parts.find(p => p.type === 'timeZoneName')?.value || 'UTC';
+                return offset;
+            } catch { return 'UTC'; }
+        }
+
+        function buildOptions(list) {
+            tzSelect.innerHTML = list.map(tz => {
+                const offset = utcOffsetLabel(tz);
+                const label = tz.replace(/_/g, ' ');
+                return `<option value="${tz}" ${tz === currentTz ? 'selected' : ''}>${label} (${offset})</option>`;
+            }).join('');
+        }
+
+        async function loadTimezones() {
+            try {
+                const res = await fetch('https://worldtimeapi.org/api/timezone');
+                const list = await res.json();
+                buildOptions(list);
+            } catch {
+                const fallback = [
+                    'UTC', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
+                    'America/Sao_Paulo', 'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Europe/Moscow',
+                    'Africa/Cairo', 'Asia/Dubai', 'Asia/Kolkata', 'Asia/Bangkok', 'Asia/Ho_Chi_Minh',
+                    'Asia/Shanghai', 'Asia/Tokyo', 'Asia/Seoul', 'Australia/Sydney', 'Pacific/Auckland'
+                ];
+                buildOptions(fallback);
+            }
+        }
+
+        async function onTzChange(tz) {
+            currentTz = tz;
+            localStorage.setItem(TZ_KEY, tz);
+            try {
+                await fetch('/user/settings', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ timezone: tz })
+                });
+            } catch { }
+            renderHistory(document.getElementById('hist-search').value);
         }
 
         // ── Rate card builder ────────────────────────────────────────────────────────
@@ -126,13 +207,14 @@
         }
 
         // ── Chat rendering ───────────────────────────────────────────────────────────
-        function addMsg(role, html, time) {
+        function addMsg(role, html, utcStr) {
             const outer = document.createElement('div');
             outer.className = 'msg ' + role;
+            const timeLabel = utcStr ? toTZFull(utcStr) : nowInTZ();
             outer.innerHTML = `
         <div class="avatar">${role === 'user' ? 'You' : 'AI'}</div>
         <div class="bubble-wrap">
-          <span class="ts">${time || now()}</span>
+          <span class="ts">${timeLabel}</span>
           <div class="bubble">${html}</div>
         </div>`;
             log.appendChild(outer);
@@ -146,7 +228,7 @@
             outer.innerHTML = `
         <div class="avatar">AI</div>
         <div class="bubble-wrap">
-          <span class="ts">${now()}</span>
+          <span class="ts">${nowInTZ()}</span>
           <div class="bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>
         </div>`;
             log.appendChild(outer);
@@ -207,9 +289,10 @@
             [...entries].reverse().forEach(entry => {
                 const item = document.createElement('div');
                 item.className = 'hist-item';
+                const displayTime = toTZFull(entry.time);
                 item.innerHTML = `
           <div class="hist-time">
-            <span>${escHtml(entry.time)}</span>
+            <span>${displayTime}</span>
             <button class="hist-del" title="Delete">✖</button>
           </div>
           <div class="hist-q">${escHtml(entry.question)}</div>
@@ -244,8 +327,7 @@
             const t0 = Date.now();
             try {
                 const res = await fetch('/currency-chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: text })
                 });
                 const data = await res.json();
@@ -282,18 +364,26 @@
         initTheme();
         (async () => {
             try {
-                const res = await fetch('/auth/me');
-                const data = await res.json();
-                if (!data.ok) { window.location.href = '/login'; return; }
-                document.getElementById('username-display').textContent = '👤 ' + data.username;
+                const meRes = await fetch('/auth/me');
+                const meData = await meRes.json();
+                if (!meData.ok) { window.location.href = '/login'; return; }
+                document.getElementById('username-display').textContent = '👤 ' + meData.username;
+
+                const tzRes = await fetch('/user/settings');
+                const tzData = await tzRes.json();
+                if (tzData.ok && tzData.timezone) {
+                    currentTz = tzData.timezone;
+                    localStorage.setItem(TZ_KEY, currentTz);
+                }
             } catch { }
+
+            await loadTimezones();
             renderHistory();
             addMsg('bot', 'Hi! I can help with currency conversions using live exchange rates.\n\nTry: "Convert 100 USD to EUR" or "What is GBP to JPY?"');
         })();
     </script>
 
     <style>
-        /* ── Rate card ────────────────────────────────────────────────────────── */
         .rate-card {
             background: linear-gradient(135deg, #d97706, #f59e0b);
             color: #fff;

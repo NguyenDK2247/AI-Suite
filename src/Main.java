@@ -33,6 +33,7 @@ public class Main {
         // ── Handlers ──────────────────────────────────────────────────────────
         AuthHandler authHandler = new AuthHandler(sessions);
         HistoryHandler historyHandler = new HistoryHandler(sessions);
+        UserHandler userHandler = new UserHandler(sessions);
         ChatHandler chatHandler = new ChatHandler(weatherService, weatherGroq, sessions);
         CurrencyHandler currencyHandler = new CurrencyHandler(currencyGroq, currencyService, sessions);
 
@@ -44,6 +45,9 @@ public class Main {
         server.createContext("/auth/login", authHandler);
         server.createContext("/auth/logout", authHandler);
         server.createContext("/auth/me", authHandler);
+
+        // User settings (timezone etc.)
+        server.createContext("/user/settings", userHandler);
 
         // History API (session required — enforced inside handler)
         server.createContext("/history", historyHandler);
