@@ -12,6 +12,9 @@ public class ChatHandler implements HttpHandler {
     private final WeatherService weatherService;
     private final GroqService groqService;
     private final SessionManager sessions;
+    private final RagService rag;
+
+    private static final String COLLECTION = "weather_knowledge";
 
     private static final String[] TRAILING_NOISE = {
             "right now", "today", "currently", "at the moment",
@@ -27,10 +30,12 @@ public class ChatHandler implements HttpHandler {
             "(?:in\\s+the\\s+)?next\\s+(\\d+)\\s+hours?",
             Pattern.CASE_INSENSITIVE);
 
-    public ChatHandler(WeatherService weatherService, GroqService groqService, SessionManager sessions) {
+    public ChatHandler(WeatherService weatherService, GroqService groqService,
+            SessionManager sessions, RagService rag) {
         this.weatherService = weatherService;
         this.groqService = groqService;
         this.sessions = sessions;
+        this.rag = rag;
     }
 
     @Override
@@ -111,6 +116,15 @@ public class ChatHandler implements HttpHandler {
 
             } else {
                 promptForGroq = userMessage;
+            }
+
+            // ── RAG: retrieve relevant background knowledge ──────────────────
+            try {
+                String ragContext = rag.retrieve(userMessage, COLLECTION);
+                if (!ragContext.isEmpty())
+                    promptForGroq = ragContext + "\n\n" + promptForGroq;
+            } catch (Exception ragEx) {
+                System.err.println("RAG retrieval skipped: " + ragEx.getMessage());
             }
 
             String reply = groqService.chat(promptForGroq);

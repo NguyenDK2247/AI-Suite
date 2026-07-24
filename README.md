@@ -40,3 +40,9 @@ N/A
    WebSockets▼  │
 [ Backend: Spring Boot / Java ] ───► [ Agent Logic: LangChain4j ] ───► [ Weather API ]
 ```
+
+### RAG Command
+Run in one terminal (cmd):
+```
+chroma run --host localhost --port 8000
+```

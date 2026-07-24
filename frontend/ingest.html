@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Knowledge Base — AI Suite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- ── Left sidebar ─────────────────────────────────────────────────── -->
+    <div class="sidebar">
+      <div class="sidebar-logo">AI<br><span>Suite</span></div>
+      <nav class="sidebar-nav">
+        <a class="sidebar-tab" href="/" title="Weather">
+          <span class="tab-icon">🌤️</span>
+          <span class="tab-label">Weather</span>
+        </a>
+        <a class="sidebar-tab" href="/currency" title="Currency">
+          <span class="tab-icon">💱</span>
+          <span class="tab-label">Currency</span>
+        </a>
+        <a class="sidebar-tab active" href="/knowledge" title="Knowledge">
+          <span class="tab-icon">🧠</span>
+          <span class="tab-label">Knowledge</span>
+        </a>
+      </nav>
+      <div class="sidebar-tz">
+        <div class="tz-label">🌐 TZ</div>
+        <select id="tz-select" class="tz-select" onchange="onTzChange(this.value)">
+          <option value="">UTC</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ── Main panel ────────────────────────────────────────────────────── -->
+    <div class="chat-panel" style="border-right:none">
+      <div class="chat-header">
+        <div class="status-dot" style="background:#a855f7;box-shadow:0 0 0 3px rgba(168,85,247,.18)"></div>
+        <h1>Knowledge Base</h1>
+        <small id="username-display" style="margin-left:auto;margin-right:8px"></small>
+        <button onclick="doLogout()" class="logout-btn">Logout</button>
+      </div>
+
+      <!-- ── Ingest form ─────────────────────────────────────────────────── -->
+      <div style="padding:24px;overflow-y:auto;flex:1">
+
+        <div class="kb-section">
+          <h2 class="kb-title">Add a web source</h2>
+          <p class="kb-subtitle">Paste a URL to scrape and add to the knowledge base. The AI will use this content to answer questions.</p>
+
+          <div class="kb-form">
+            <div class="kb-field">
+              <label>URL</label>
+              <input id="url-input" type="url" placeholder="https://example.com/article" />
+            </div>
+
+            <div class="kb-field">
+              <label>Agent</label>
+              <select id="collection-select">
+                <option value="weather_knowledge">🌤️ Weather Agent</option>
+                <option value="currency_knowledge">💱 Currency Agent</option>
+              </select>
+            </div>
+
+            <div class="kb-field">
+              <label>Crawl depth</label>
+              <div class="depth-options">
+                <label class="depth-opt">
+                  <input type="radio" name="depth" value="0" checked />
+                  <span>
+                    <strong>Single page</strong>
+                    <small>Only the URL you enter</small>
+                  </span>
+                </label>
+                <label class="depth-opt">
+                  <input type="radio" name="depth" value="1" />
+                  <span>
+                    <strong>Page + links</strong>
+                    <small>URL and up to 10 linked pages on the same domain</small>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <button class="kb-btn" id="ingest-btn" onclick="doIngest()">
+              <span id="btn-text">Add to knowledge base</span>
+            </button>
+          </div>
+
+          <div class="banner error"   id="error-banner"></div>
+          <div class="banner success" id="success-banner"></div>
+        </div>
+
+        <!-- ── Log ──────────────────────────────────────────────────────── -->
+        <div class="kb-section" style="margin-top:28px">
+          <h2 class="kb-title">Ingest log</h2>
+          <p class="kb-subtitle">Recent ingestion activity (this session only).</p>
+          <div id="log-list" class="log-list">
+            <p class="hist-empty" style="margin-top:16px">No activity yet.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Right panel: tips ─────────────────────────────────────────────── -->
+    <div class="history-panel">
+      <div class="history-header">
+        <h2>Tips</h2>
+        <button id="theme-btn" onclick="toggleTheme()" title="Toggle theme">☀️</button>
+      </div>
+
+      <div style="padding:14px;display:flex;flex-direction:column;gap:12px">
+
+        <div class="tip-card">
+          <div class="tip-icon">🌤️</div>
+          <div>
+            <strong>Weather Agent — good sources</strong>
+            <p>Wikipedia climate pages work great (e.g. wikipedia.org/wiki/Climate_of_Vietnam). Also try timeanddate.com/weather and weather-atlas.com. Avoid AccuWeather, weather.com — they require JavaScript.</p>
+          </div>
+        </div>
+
+        <div class="tip-card">
+          <div class="tip-icon">💱</div>
+          <div>
+            <strong>Currency Agent — good sources</strong>
+            <p>Wikipedia currency pages (e.g. wikipedia.org/wiki/Vietnamese_dong) and Investopedia articles work well. Avoid Bloomberg, Reuters, WSJ — they require JavaScript or a subscription.</p>
+          </div>
+        </div>
+
+        <div class="tip-card">
+          <div class="tip-icon">⚠️</div>
+          <div>
+            <strong>JavaScript-rendered sites</strong>
+            <p>Many modern sites (AccuWeather, BBC Weather, weather.gov) load content via JavaScript, which the scraper can't read. If you get a "requires JavaScript" error, switch to a Wikipedia or static page.</p>
+          </div>
+        </div>
+
+        <div class="tip-card">
+          <div class="tip-icon">⏱️</div>
+          <div>
+            <strong>Ingestion takes time</strong>
+            <p>Each page is scraped, chunked, and embedded locally by Ollama. A single page takes ~15–30 seconds. Depth=1 may take a few minutes. The button will re-enable when done.</p>
+          </div>
+        </div>
+
+        <div class="tip-card">
+          <div class="tip-icon">🔄</div>
+          <div>
+            <strong>Re-ingesting a URL</strong>
+            <p>Safe to re-add the same URL — ChromaDB upserts existing chunks rather than duplicating them. ChromaDB data also persists across server restarts.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <style>
+    .kb-section  { max-width: 560px; }
+    .kb-title    { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .kb-subtitle { font-size: 12px; color: var(--muted); margin-bottom: 18px; line-height: 1.6; }
+
+    .kb-form { display: flex; flex-direction: column; gap: 14px; }
+
+    .kb-field { display: flex; flex-direction: column; gap: 5px; }
+    .kb-field label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
+
+    .kb-field input[type=url],
+    .kb-field select {
+      padding: 10px 13px;
+      font-size: 13.5px;
+      font-family: inherit;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      color: var(--text);
+      outline: none;
+      transition: border-color .15s;
+    }
+    .kb-field input[type=url]:focus,
+    .kb-field select:focus { border-color: var(--accent); }
+
+    .depth-options { display: flex; flex-direction: column; gap: 8px; }
+
+    .depth-opt {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 13px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      cursor: pointer;
+      transition: border-color .15s;
+    }
+    .depth-opt:hover { border-color: var(--accent); }
+    .depth-opt input[type=radio] { margin-top: 2px; accent-color: var(--accent); flex-shrink: 0; }
+    .depth-opt span { display: flex; flex-direction: column; gap: 2px; }
+    .depth-opt strong { font-size: 13px; color: var(--text); }
+    .depth-opt small  { font-size: 11px; color: var(--muted); }
+
+    .kb-btn {
+      padding: 11px;
+      background: #a855f7;
+      color: #fff;
+      font-size: 13.5px;
+      font-weight: 600;
+      font-family: inherit;
+      border: none;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: background .15s, transform .1s, opacity .15s;
+    }
+    .kb-btn:hover:not(:disabled) { background: #9333ea; transform: translateY(-1px); }
+    .kb-btn:disabled { opacity: .5; cursor: default; transform: none; }
+
+    .banner { padding: 10px 14px; border-radius: 8px; font-size: 13px; display: none; margin-top: 10px; }
+    .banner.error   { background: rgba(248,113,113,.1); border: 1px solid rgba(248,113,113,.3); color: #f87171; }
+    .banner.success { background: rgba(168,85,247,.1);  border: 1px solid rgba(168,85,247,.3);  color: #c084fc; }
+    .banner.show { display: block; }
+
+    .log-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .log-entry {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 10px 13px;
+      font-size: 12px;
+    }
+    .log-entry .log-url   { color: var(--accent2); font-weight: 500; word-break: break-all; }
+    .log-entry .log-meta  { color: var(--muted); margin-top: 3px; }
+    .log-entry .log-ok    { color: #a855f7; }
+    .log-entry .log-err   { color: #f87171; }
+
+    .tip-card {
+      display: flex;
+      gap: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .tip-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+    .tip-card strong { display: block; font-size: 12px; color: var(--text); margin-bottom: 4px; }
+    .tip-card p { font-size: 11px; color: var(--muted); line-height: 1.6; margin: 0; }
+  </style>
+
+  <script>
+    const THEME_KEY = 'app_theme';
+    const TZ_KEY    = 'app_timezone';
+    const themeBtn  = document.getElementById('theme-btn');
+    const tzSelect  = document.getElementById('tz-select');
+
+    // ── Theme ────────────────────────────────────────────────────────────────
+    function initTheme() {
+      if (localStorage.getItem(THEME_KEY) === 'light') {
+        document.body.classList.add('light-mode');
+        themeBtn.textContent = '🌙';
+      }
+    }
+    function toggleTheme() {
+      const light = document.body.classList.toggle('light-mode');
+      themeBtn.textContent = light ? '🌙' : '☀️';
+      localStorage.setItem(THEME_KEY, light ? 'light' : 'dark');
+    }
+
+    // ── Timezone (kept in sync with other pages) ─────────────────────────────
+    function utcOffsetLabel(tz) {
+      try {
+        const parts = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(new Date());
+        return parts.find(p => p.type === 'timeZoneName')?.value || 'UTC';
+      } catch { return 'UTC'; }
+    }
+
+    async function loadTimezones() {
+      const current = localStorage.getItem(TZ_KEY) || 'UTC';
+      try {
+        const res  = await fetch('https://worldtimeapi.org/api/timezone');
+        const list = await res.json();
+        tzSelect.innerHTML = list.map(tz => {
+          const label = tz.replace(/_/g, ' ');
+          return `<option value="${tz}" ${tz === current ? 'selected' : ''}>${label} (${utcOffsetLabel(tz)})</option>`;
+        }).join('');
+      } catch {
+        const fallback = ['UTC','America/New_York','Europe/London','Asia/Ho_Chi_Minh','Asia/Tokyo'];
+        tzSelect.innerHTML = fallback.map(tz =>
+          `<option value="${tz}" ${tz === current ? 'selected' : ''}>${tz.replace(/_/g,' ')} (${utcOffsetLabel(tz)})</option>`
+        ).join('');
+      }
+    }
+
+    async function onTzChange(tz) {
+      localStorage.setItem(TZ_KEY, tz);
+      try {
+        await fetch('/user/settings', {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ timezone: tz })
+        });
+      } catch {}
+    }
+
+    // ── Ingest ───────────────────────────────────────────────────────────────
+    function showError(msg)   { const b = document.getElementById('error-banner');   b.textContent = msg; b.className = 'banner error show';   document.getElementById('success-banner').className = 'banner success'; }
+    function showSuccess(msg) { const b = document.getElementById('success-banner'); b.textContent = msg; b.className = 'banner success show'; document.getElementById('error-banner').className = 'banner error'; }
+    function clearBanners()   { document.getElementById('error-banner').className = 'banner error'; document.getElementById('success-banner').className = 'banner success'; }
+
+    function addLogEntry(url, collection, depth, status, detail) {
+      const list = document.getElementById('log-list');
+      const empty = list.querySelector('.hist-empty');
+      if (empty) empty.remove();
+
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `
+        <div class="log-url">${escHtml(url)}</div>
+        <div class="log-meta">
+          ${collection === 'weather_knowledge' ? '🌤️ Weather' : '💱 Currency'} ·
+          depth=${depth} ·
+          <span class="${status === 'ok' ? 'log-ok' : 'log-err'}">${escHtml(detail)}</span>
+        </div>`;
+      list.prepend(entry);
+    }
+
+    function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    async function doIngest() {
+      clearBanners();
+      const url        = document.getElementById('url-input').value.trim();
+      const collection = document.getElementById('collection-select').value;
+      const depth      = parseInt(document.querySelector('input[name=depth]:checked').value);
+      const btn        = document.getElementById('ingest-btn');
+      const btnText    = document.getElementById('btn-text');
+
+      if (!url) { showError('Please enter a URL.'); return; }
+      if (!url.startsWith('http://') && !url.startsWith('https://'))
+        { showError('URL must start with http:// or https://'); return; }
+
+      btn.disabled      = true;
+      btnText.textContent = depth === 1 ? 'Crawling & embedding… (this may take a minute)' : 'Scraping & embedding…';
+
+      // Show a progress note since embedding takes time
+      showSuccess('Working… scraping and embedding content locally. Please wait.');
+
+      try {
+        const res  = await fetch('/ingest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, collection, depth })
+        });
+        const data = await res.json();
+
+        if (data.ok) {
+          const agent = collection === 'weather_knowledge' ? '🌤️ Weather' : '💱 Currency';
+          showSuccess(
+            `Done! Ingested ${data.pagesIngested} page(s) and ${data.chunksIngested} chunks `
+            + `into the ${agent} agent. The AI will now use this content.`
+          );
+          addLogEntry(url, collection, depth, 'ok',
+            `${data.pagesIngested} page(s), ${data.chunksIngested} chunks`);
+          document.getElementById('url-input').value = '';
+        } else {
+          showError(data.error || 'Ingestion failed.');
+          addLogEntry(url, collection, depth, 'err', data.error || 'failed');
+        }
+      } catch (e) {
+        showError('Could not reach the server.');
+        addLogEntry(url, collection, depth, 'err', 'server unreachable');
+      } finally {
+        btn.disabled    = false;
+        btnText.textContent = 'Add to knowledge base';
+      }
+    }
+
+    async function doLogout() {
+      await fetch('/auth/logout', { method: 'POST' });
+      window.location.href = '/login';
+    }
+
+    // ── Boot ─────────────────────────────────────────────────────────────────
+    initTheme();
+    (async () => {
+      try {
+        const meRes  = await fetch('/auth/me');
+        const meData = await meRes.json();
+        if (!meData.ok) { window.location.href = '/login'; return; }
+        document.getElementById('username-display').textContent = '👤 ' + meData.username;
+        const tzRes  = await fetch('/user/settings');
+        const tzData = await tzRes.json();
+        if (tzData.ok && tzData.timezone) localStorage.setItem(TZ_KEY, tzData.timezone);
+      } catch {}
+      loadTimezones();
+    })();
+  </script>
+</body>
+</html>

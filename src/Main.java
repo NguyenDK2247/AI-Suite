@@ -30,12 +30,20 @@ public class Main {
         WeatherService weatherService = new WeatherService(weatherKey);
         CurrencyService currencyService = new CurrencyService();
 
+        // ── RAG services ──────────────────────────────────────────────────────
+        EmbeddingService embeddingService = new EmbeddingService();
+        VectorStore vectorStore = new VectorStore();
+        WebScraper webScraper = new WebScraper();
+        Reranker reranker = new Reranker(embeddingService);
+        RagService ragService = new RagService(webScraper, embeddingService, vectorStore, reranker);
+
         // ── Handlers ──────────────────────────────────────────────────────────
         AuthHandler authHandler = new AuthHandler(sessions);
         HistoryHandler historyHandler = new HistoryHandler(sessions);
         UserHandler userHandler = new UserHandler(sessions);
-        ChatHandler chatHandler = new ChatHandler(weatherService, weatherGroq, sessions);
-        CurrencyHandler currencyHandler = new CurrencyHandler(currencyGroq, currencyService, sessions);
+        IngestHandler ingestHandler = new IngestHandler(ragService, sessions);
+        ChatHandler chatHandler = new ChatHandler(weatherService, weatherGroq, sessions, ragService);
+        CurrencyHandler currencyHandler = new CurrencyHandler(currencyGroq, currencyService, sessions, ragService);
 
         // ── HTTP server ───────────────────────────────────────────────────────
         HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
@@ -51,6 +59,10 @@ public class Main {
 
         // History API (session required — enforced inside handler)
         server.createContext("/history", historyHandler);
+
+        // Ingest API (session required — enforced inside handler)
+        server.createContext("/ingest", ingestHandler);
+        server.createContext("/ingest/collections", ingestHandler);
 
         // Chat APIs (session required — enforced inside handler)
         server.createContext("/chat", chatHandler);
@@ -75,6 +87,16 @@ public class Main {
                 return;
             }
             serveFile(exchange, "frontend/currency.html", "text/html; charset=utf-8");
+        });
+
+        server.createContext("/knowledge", exchange -> {
+            if (!exchange.getRequestMethod().equalsIgnoreCase("GET"))
+                return;
+            if (!isAuthenticated(exchange, sessions)) {
+                redirect(exchange, "/login");
+                return;
+            }
+            serveFile(exchange, "frontend/ingest.html", "text/html; charset=utf-8");
         });
 
         // Auth pages — always public

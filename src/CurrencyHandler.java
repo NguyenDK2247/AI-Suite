@@ -10,9 +10,11 @@ import java.util.regex.Pattern;
 public class CurrencyHandler implements HttpHandler {
 
     private final SessionManager sessions;
-
     private final GroqService groqService;
     private final CurrencyService currencyService;
+    private final RagService rag;
+
+    private static final String COLLECTION = "currency_knowledge";
 
     // ── Topic guard ──────────────────────────────────────────────────────────────
     private static final Pattern CURRENCY_PATTERN = Pattern.compile(
@@ -34,8 +36,9 @@ public class CurrencyHandler implements HttpHandler {
 
     // Matches: "100 USD to EUR", "USD to EUR", "dollars to euros"
     private static final Pattern CONVERSION_PATTERN = Pattern.compile(
-            "(?i)([\\d,]+(?:\\.\\d+)?)\\s+([A-Za-z]{2,10})\\s+(?:to|in|into)\\s+([A-Za-z]{2,10})" +
-                    "|([A-Za-z]{2,10})\\s+(?:to|in|into)\\s+([A-Za-z]{2,10})");
+            // "500 euros in Vietnamese dong" or "500 EUR to VND"
+            "(?i)([\\d,]+(?:\\.\\d+)?)\\s+([A-Za-z]{2,10})\\s+(?:to|in|into)\\s+([A-Za-z]+(?:\\s+[A-Za-z]+)?)" +
+                    "|([A-Za-z]+(?:\\s+[A-Za-z]+)?)\\s+(?:to|in|into)\\s+([A-Za-z]+(?:\\s+[A-Za-z]+)?)");
 
     // Common name -> ISO code
     private static final Map<String, String> NAME_MAP = Map.ofEntries(
@@ -50,15 +53,24 @@ public class CurrencyHandler implements HttpHandler {
             Map.entry("ruble", "RUB"), Map.entry("rubles", "RUB"),
             Map.entry("real", "BRL"), Map.entry("reais", "BRL"),
             Map.entry("peso", "MXN"), Map.entry("pesos", "MXN"),
-            Map.entry("dong", "VND"),
+            Map.entry("dong", "VND"), Map.entry("vietnamese dong", "VND"),
             Map.entry("bitcoin", "BTC"), Map.entry("btc", "BTC"),
-            Map.entry("ethereum", "ETH"), Map.entry("eth", "ETH"));
+            Map.entry("ethereum", "ETH"), Map.entry("eth", "ETH"),
+            Map.entry("us dollar", "USD"), Map.entry("us dollars", "USD"),
+            Map.entry("canadian dollar", "CAD"), Map.entry("canadian dollars", "CAD"),
+            Map.entry("australian dollar", "AUD"), Map.entry("australian dollars", "AUD"),
+            Map.entry("hong kong dollar", "HKD"), Map.entry("singapore dollar", "SGD"),
+            Map.entry("swiss franc", "CHF"), Map.entry("new zealand dollar", "NZD"),
+            Map.entry("south korean won", "KRW"), Map.entry("chinese yuan", "CNY"),
+            Map.entry("japanese yen", "JPY"), Map.entry("british pound", "GBP"));
 
     // ── Constructor ──────────────────────────────────────────────────────────────
-    public CurrencyHandler(GroqService groqService, CurrencyService currencyService, SessionManager sessions) {
+    public CurrencyHandler(GroqService groqService, CurrencyService currencyService,
+            SessionManager sessions, RagService rag) {
         this.groqService = groqService;
         this.currencyService = currencyService;
         this.sessions = sessions;
+        this.rag = rag;
     }
 
     // ── Handle ───────────────────────────────────────────────────────────────────
@@ -132,6 +144,15 @@ public class CurrencyHandler implements HttpHandler {
             } else {
                 // No pair detected — let Groq answer from training knowledge
                 promptForGroq = userMessage;
+            }
+
+            // ── RAG: retrieve relevant background knowledge ──────────────────
+            try {
+                String ragContext = rag.retrieve(userMessage, COLLECTION);
+                if (!ragContext.isEmpty())
+                    promptForGroq = ragContext + "\n\n" + promptForGroq;
+            } catch (Exception ragEx) {
+                System.err.println("RAG retrieval skipped: " + ragEx.getMessage());
             }
 
             String reply = groqService.chat(promptForGroq);
