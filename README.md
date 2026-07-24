@@ -1,48 +1,136 @@
 # 🤖🌤️💱 AI Agent and Interface 
 
-A personal, work-in-progress (WIP) AI agent and web interface designed to execute automated tasks and broadcast information under direct command. 
+A personal AI agent and web interface for weather forecasting and currency exchange, with a built-in knowledge base powered by RAG (Retrieval-Augmented Generation).
 
-Currently, the agent is capable of processing weather and currency related prompts and broadcasting real-time updates. The project is actively undergoing UI enhancements, layout expansions, and visual styling updates.
-
-## 🚀 Current Features
-* **[Weather Broadcast/Currency Exchange] Agent:** processes user commands and prompts to fetch and broadcast [current weather conditions/currency exchange rates]
-* **Interactive UI:** a dedicated web interface to communicate with and monitor the AI agent
+## 🚀 Current Features (WIP)
+* **Weather Agent:** fetches real-time weather and hourly forecasts via OpenWeatherMap, with Groq (LLaMA 3.3 70B Versatile) providing natural language commentary
+* **Currency Agent:** fetches live exchange rates via ExchangeRate-API and converts between currencies, with topic-guarded responses (regex prevents off-topic questions)
+* **RAG Pipeline:** web scraper (Jsoup) ingests URLs into ChromaDB via local Ollama embeddings (`nomic-embed-text`), with hybrid search (semantic + keyword) and cosine-similarity reranking
+* **Knowledge Base UI:** dedicated `/knowledge` page to add URLs per agent, with crawl depth control and real-time ingest feedback
+* **Authentication:** BCrypt-hashed passwords, SQLite-backed user accounts, HttpOnly session cookies with optional 30-day "remember me"
+* **Per-user history:** chat history stored server-side in SQLite, fully searchable, separate per agent and per account
+* **Timezone selector:** IANA timezone dropdown (via WorldTimeAPI) synced across all pages and persisted per user; all timestamps (chat bubbles, forecast cards, history) respect the chosen timezone
+* **Dark/light mode:** synced across login, signup, and all chat pages via `localStorage`
+* **Multi-agent sidebar:** Weather, Currency, and Knowledge tabs with persistent navigation
 
 ## 🛠️ Tech Stack (WIP)
-* **Frontend:** React / Next.js + Tailwind CSS (WIP)
-* **Styling:** Tailwind CSS / CSS Modules
-* **Agent Logic:** LangChain4j (WIP)
 
-## 🚧 Roadmaps & Upcoming Enhancements
-- [ ] **UI/UX Redesign:** extend the layout to support multi-column dashboards
-- [ ] **Visual Decoration:** implement dark mode, modern animations, and polished UI components
-- [ ] **Agent Capability Expansion:** add more command modules beyond weather (e.g., daily schedules, news summaries, or system automation)
-- [ ] **Persistent Memory:** allow the agent to remember user preferences across sessions
-- [ ] **Retrieved-Augmented Generation (RAG) and Vector Database Integration:** implement [RAG/Vector Database Integration] to allow the agent to [fetch/store and retrieve] relevant information from external sources and use it to generate responses
-- [ ] **Semantic Search:** uses AI and NLP to understand the meaning and intent behind a user's query
+| Layer | Technology |
+|---|---|
+| Frontend | Vanilla HTML/CSS/JS (no framework) |
+| Backend | Plain Java (`com.sun.net.httpserver`) |
+| LLM | Groq API - LLaMA 3.3 70B Versatile |
+| Weather data | OpenWeatherMap API |
+| Currency data | ExchangeRate-API (no key required) |
+| Embeddings | Ollama - `nomic-embed-text` (local) |
+| Vector store | ChromaDB v2 (local) |
+| Web scraping | Jsoup |
+| Database | SQLite via `sqlite-jdbc` |
+| Password hashing | BCrypt (jBCrypt source) |
 
 ## 📦 Getting Started
 
-### Prerequisites (WIP)
-N/A
-
-### Installation
-1. Clone the repository:
-   ```bash
-   git clone [https://github.com/NguyenDK2247/AI-Agent-and-Interface.git](https://github.com/NguyenDK2247/AI-Agent-and-Interface.git)
-   cd AI-Agent-and-Interface
-
-### Projected Blueprint
+### Prerequisites
+ 
+1. **Java 17+**
+2. **Ollama** - https://ollama.com/download
 ```
-[ Frontend: Next.js + Tailwind ] 
-             │  ▲
-   REST /    │  │ Server-Sent Events (For live text streaming)
-   WebSockets▼  │
-[ Backend: Spring Boot / Java ] ───► [ Agent Logic: LangChain4j ] ───► [ Weather API ]
+   ollama pull nomic-embed-text
+```
+3. **ChromaDB** - requires Python 3.11+
+```
+   pip install chromadb
+```
+4. **API keys** - set in `.env`:
+```
+   OPENWEATHER_API_KEY=your_key_here
+   GROQ_API_KEY=your_key_here
 ```
 
-### RAG Command
-Run in one terminal (cmd):
+### lib\ dependencies
+ 
+Download these jars into the `lib\` folder:
+ 
+| Jar | Source |
+|---|---|
+| `sqlite-jdbc-3.41.2.2.jar` | [github.com/xerial/sqlite-jdbc/releases](https://github.com/xerial/sqlite-jdbc/releases) |
+| `slf4j-api-2.0.17.jar` | [mvnrepository.com](https://mvnrepository.com/) |
+| `slf4j-simple-2.0.17.jar` | [mvnrepository.com](https://mvnrepository.com/) |
+| `jsoup-1.22.2.jar` | [jsoup.org/download](https://jsoup.org/download) |
+
+### Running
+ 
+Open three terminals:
+ 
+**Terminal 1 - Ollama** (may already be running as a service):
+```
+ollama serve
+```
+ 
+**Terminal 2 - ChromaDB:**
 ```
 chroma run --host localhost --port 8000
 ```
+ 
+**Terminal 3 - App** (from project root):
+```
+run.bat
+```
+ 
+Then open `http://localhost:8080/signup` to create an account.
+
+### Project Structure
+ 
+```
+project/
+├── frontend/
+│   ├── index.html          # Weather chat
+│   ├── currency.html       # Currency chat
+│   ├── ingest.html         # Knowledge base manager
+│   ├── login.html
+│   ├── signup.html
+│   ├── styles.css
+│   └── auth.css
+├── src/
+│   ├── Main.java
+│   ├── AuthHandler.java
+│   ├── ChatHandler.java
+│   ├── CurrencyHandler.java
+│   ├── HistoryHandler.java
+│   ├── IngestHandler.java
+│   ├── UserHandler.java
+│   ├── Database.java
+│   ├── SessionManager.java
+│   ├── GroqService.java
+│   ├── WeatherService.java
+│   ├── CurrencyService.java
+│   ├── EmbeddingService.java
+│   ├── VectorStore.java
+│   ├── WebScraper.java
+│   ├── RagService.java
+│   ├── Reranker.java
+│   └── BCrypt.java
+├── lib/                    # External jars
+├── out/                    # Compiled classes (git-ignored)
+├── app.db                  # SQLite database (git-ignored)
+├── .env                    # API keys (git-ignored)
+├── .gitignore
+└── run.bat
+```
+
+## 🚧 Roadmaps & Upcoming Enhancements
+- [x] **Weather Agent** - real-time weather and hourly forecasts
+- [x] **Currency Agent** - live exchange rates with topic guard
+- [x] **Interactive UI** - multi-column chat interface with history panel
+- [x] **Dark/light mode** - synced across all pages
+- [x] **Authentication** - signup, login, BCrypt passwords, session cookies, remember me
+- [x] **Persistent memory** - per-user chat history in SQLite, searchable, deletable
+- [x] **Timezone support** - IANA timezone selector, all times consistent across the UI
+- [x] **RAG pipeline** - web scraping → chunking → local embeddings → ChromaDB
+- [x] **Hybrid semantic search** - vector search + keyword search merged and deduplicated
+- [x] **Reranking** - cosine similarity reranking of retrieved candidates
+- [x] **Knowledge base UI** - `/knowledge` page to manage ingested sources per agent
+- [ ] **Agent Capability Expansion** - add more agents (news, schedules, etc.)
+- [ ] **Streaming responses** - stream Groq output token by token instead of waiting
+- [ ] **User preferences** - per-user system prompt customisation
+- [ ] **RAG source attribution** - show which source each answer came from in the UI
