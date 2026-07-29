@@ -7,3 +7,4 @@ build/
 app.db
 architecture_rag.txt
 run.bat
+chroma/*
