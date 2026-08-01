@@ -1,10 +1,25 @@
-# .gitignore
+# Secrets
 .env
-*.class
-out/
-target/
-build/
+
+# Generated data
 app.db
-architecture_rag.txt
-run.bat
 chroma/
+
+# Maven
+target/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.class
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Draft
+architecture.txt
+
+# Debug
+app.log
