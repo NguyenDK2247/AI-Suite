@@ -177,3 +177,41 @@ A running record of every feature, enhancement, and fix built for this project. 
 - **Notes:** The checkbox is keyboard-accessible via `focus-visible` outline on the hidden native input.
 
 ---
+ 
+### `011` - Spring Boot Migration
+- **Type:** Refactor
+- **Status:** Complete
+- **Description:** Migrated the entire backend from plain Java (`com.sun.net.httpserver`) to Spring Boot 3.2 with Maven. The frontend, business logic, database schema, and external integrations (Groq, OpenWeatherMap, ExchangeRate-API, Ollama, ChromaDB) are unchanged. The migration eliminates manual jar management, manual JSON parsing, hand-rolled session cookies, and manual static file serving - replacing them all with Spring Boot conventions.
+- **Implemented:**
+  - `pom.xml` - Maven build file; all dependencies declared (spring-boot-starter-web, spring-boot-starter-jdbc, sqlite-jdbc, jbcrypt, jsoup, jackson-databind); replaces `lib/` folder and `run.bat` classpath management entirely
+  - `src/main/resources/application.properties` - server port, SQLite datasource, Jackson config, static resource path, API key bindings via `${ENV_VAR}`, Ollama and ChromaDB URLs
+  - `src/main/resources/schema.sql` - database schema auto-run on startup via `spring.sql.init.mode=always`; replaces `Database.java`
+  - `AiSuiteApplication.java` - Spring Boot entry point with `@SpringBootApplication`; replaces `Main.java`
+  - `config/DatabaseConfig.java` - `JdbcTemplate` bean with WAL mode and foreign keys enabled on startup
+  - `config/AgentConfig.java` - manually creates two named `GroqService` beans (`weatherGroq`, `currencyGroq`) with their respective system prompts; avoids circular dependency that caused `StackOverflowError`
+  - `config/WebConfig.java` - registers `AuthInterceptor` on protected API routes; CORS configuration
+  - `config/AuthInterceptor.java` - `HandlerInterceptor` that validates session cookie and attaches `userId` to request attributes; replaces session checks scattered across all handlers
+  - `controller/AuthController.java` - `@RestController` for `/auth/signup`, `/auth/login`, `/auth/logout`, `/auth/me`; replaces `AuthHandler.java`
+  - `controller/ChatController.java` - `@RestController` for `POST /chat`; RAG runs before city detection so knowledge-base questions work without a city name in the query
+  - `controller/CurrencyController.java` - `@RestController` for `POST /currency-chat`; RAG runs before topic guard so knowledge-base questions bypass the regex guard when relevant context is found
+  - `controller/HistoryController.java` - `@RestController` for `GET/POST/DELETE /history`; replaces `HistoryHandler.java`
+  - `controller/IngestController.java` - `@RestController` for `POST /ingest` and `GET /ingest/collections`; replaces `IngestHandler.java`
+  - `controller/PageController.java` - serves HTML pages using `ClassPathResource`; redirects unauthenticated requests to `/login`; replaces static file routes in `Main.java`
+  - `controller/UserController.java` - `@RestController` for `GET/PATCH /user/settings`; replaces `UserHandler.java`
+  - `service/SessionService.java` - session token creation and validation using `JdbcTemplate`; replaces `SessionManager.java`
+  - `service/UserService.java` - user signup, login, lookup, timezone update using `JdbcTemplate` and jBCrypt; replaces the user logic spread across `AuthHandler.java` and `Database.java`
+  - `service/HistoryService.java` - history CRUD using `JdbcTemplate`; replaces `HistoryHandler.java` DB logic
+  - `service/GroqService.java` - not a `@Service` bean (instantiated by `AgentConfig`); two-arg constructor takes system prompt directly
+  - `service/WeatherService.java` - `@Service` with `@Value("${app.openweather.api-key}")`; logic unchanged
+  - `service/CurrencyService.java` - `@Service`; logic unchanged
+  - `service/EmbeddingService.java` - `@Service` with `@Value("${app.ollama.url}")`; logic unchanged
+  - `service/VectorStore.java` - `@Service` with `@Value("${app.chroma.url}")`; logic unchanged
+  - `service/WebScraper.java` - `@Service`; logic unchanged
+  - `service/RagService.java` - `@Service`; logic unchanged
+  - `service/Reranker.java` - `@Service`; logic unchanged
+  - `model/User.java` - plain POJO for user data
+  - `model/HistoryEntry.java` - plain POJO for history entries; uses `JsonNode` for extra field
+  - `src/main/resources/static/` - all frontend files moved here from `frontend/`; served automatically by Spring Boot without any explicit routes
+  - `run.bat` - loads `.env` then calls `mvnw.cmd spring-boot:run`; no more `javac` or classpath management
+- **Depends on:** All previous entries; Maven 3.9+; Java 17+
+- **Notes:** `BCrypt.java` source file replaced by the `org.mindrot:jbcrypt:0.4` Maven dependency. `lib/` and `out/` folders deleted - Maven uses `~/.m2/repository` for dependencies and `target/` for compiled output. `JAVA_HOME` must point to the JDK root folder (e.g. `C:\Program Files\Eclipse Adoptium\jdk-17.0.13.11-hotspot`), not the `bin\java.exe` path. User-level environment variables take priority over system-level ones on Windows. `forward:` in Spring MVC controllers causes `StackOverflowError` if the forwarded path is also handled by the same controller - use `ClassPathResource` to serve static files directly instead. `GroqService` must not be a `@Service` bean when it has a factory method that creates instances of itself - Spring will attempt to wire it recursively, causing a `StackOverflowError`.
