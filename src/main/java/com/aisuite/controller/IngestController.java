@@ -21,7 +21,11 @@ public class IngestController {
     @GetMapping("/collections")
     public ResponseEntity<Map<String, Object>> listCollections() {
         return ResponseEntity.ok(Map.of(
-                "collections", new String[] { "weather_knowledge", "currency_knowledge" }));
+                "collections", new String[] {
+                        "weather_knowledge",
+                        "currency_knowledge",
+                        "translation_knowledge"
+                }));
     }
 
     // ── POST /ingest ──────────────────────────────────────────────────────────

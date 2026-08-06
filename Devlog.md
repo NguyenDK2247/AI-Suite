@@ -215,3 +215,23 @@ A running record of every feature, enhancement, and fix built for this project. 
   - `run.bat` - loads `.env` then calls `mvnw.cmd spring-boot:run`; no more `javac` or classpath management
 - **Depends on:** All previous entries; Maven 3.9+; Java 17+
 - **Notes:** `BCrypt.java` source file replaced by the `org.mindrot:jbcrypt:0.4` Maven dependency. `lib/` and `out/` folders deleted - Maven uses `~/.m2/repository` for dependencies and `target/` for compiled output. `JAVA_HOME` must point to the JDK root folder (e.g. `C:\Program Files\Eclipse Adoptium\jdk-17.0.13.11-hotspot`), not the `bin\java.exe` path. User-level environment variables take priority over system-level ones on Windows. `forward:` in Spring MVC controllers causes `StackOverflowError` if the forwarded path is also handled by the same controller - use `ClassPathResource` to serve static files directly instead. `GroqService` must not be a `@Service` bean when it has a factory method that creates instances of itself - Spring will attempt to wire it recursively, causing a `StackOverflowError`.
+
+---
+
+### `012` - Translation Agent
+- **Type:** Feature
+- **Status:** Complete
+- **Description:** A third AI agent dedicated to language translation and language-related questions. Uses a locally hosted LibreTranslate instance for actual translation (free, unlimited, no API key), and Groq for natural language commentary around the result. Detects source language automatically via LibreTranslate's `/detect` endpoint if not specified. A purple translation card renders in the chat bubble showing the source language, target language, original text, and translated text. Includes retry logic (3 attempts, 2s apart) to handle LibreTranslate connection resets after idle periods.
+- **Implemented:**
+  - `service/TranslationService.java` - calls local LibreTranslate `/translate` and `/detect` endpoints; URL injected via `${app.libretranslate.url}`; language name → ISO 639-1 code resolution via `HashMap` (31 languages); `postWithRetry()` wraps every request in a 3-attempt retry loop catching `IOException` (covers `HttpTimeoutException` and connection resets); connect timeout 30s, translate timeout 45s, detect timeout 20s
+  - `controller/TranslationController.java` - handles `POST /translate-chat`; topic guard via `TOPIC_PATTERN`; extracts text and target/source language from natural language queries via `TRANSLATE_PATTERN` regex (handles quoted text, "translate X to Y", "how do you say X in Y" phrasings); RAG retrieves from `translation_knowledge` collection before topic guard; falls back to Groq general language knowledge if no specific translation is detected
+  - `config/AgentConfig.java` - added `translationGroq` bean with `TRANSLATION_PROMPT`
+  - `service/GroqService.java` - added `TRANSLATION_PROMPT` constant
+  - `config/WebConfig.java` - added `/translate-chat` to protected interceptor routes
+  - `controller/PageController.java` - added `/translation` route serving `translation.html`
+  - `controller/IngestController.java` - added `translation_knowledge` to collections list
+  - `static/translation.html` - translation chat page; purple gradient card (`.translation-card`) showing source/target lang badges, original text in italics, translated text large; quick-chips for common language pairs; full history, timezone, theme support matching other pages
+  - `static/index.html`, `currency.html`, `ingest.html` - 🌐 Translate tab added to sidebar
+  - `src/main/resources/application.properties` - added `app.libretranslate.url=http://localhost:5000`
+- **Depends on:** LibreTranslate (local, `pip install libretranslate`), Entry `011`, Groq API
+- **Notes:** LibreTranslate must be running before the app starts (`libretranslate --host 0.0.0.0 --port 5000`). First run downloads ~1-2 GB of language models; subsequent runs start in seconds. `Map.ofEntries()` throws `IllegalArgumentException` on duplicate keys at class initialisation - always use a `static {}` block with `HashMap` for large maps. `HttpTimeoutException` extends `IOException` so catching both in a multi-catch is a compile error - `IOException` alone is sufficient. The `Connection reset` error occurs when LibreTranslate's worker process idles and drops the socket; the retry loop recovers from this automatically without user-facing errors.

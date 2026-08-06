@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Currency Assistant</title>
+    <title>Translation Assistant</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
@@ -21,11 +21,11 @@
                     <span class="tab-icon">🌤️</span>
                     <span class="tab-label">Weather</span>
                 </a>
-                <a class="sidebar-tab active" href="/currency" title="Currency">
+                <a class="sidebar-tab" href="/currency" title="Currency">
                     <span class="tab-icon">💱</span>
                     <span class="tab-label">Currency</span>
                 </a>
-                <a class="sidebar-tab" href="/translation" title="Translation">
+                <a class="sidebar-tab active" href="/translation" title="Translation">
                     <span class="tab-icon">🌐</span>
                     <span class="tab-label">Translate</span>
                 </a>
@@ -34,11 +34,10 @@
                     <span class="tab-label">Knowledge</span>
                 </a>
             </nav>
-            <!-- Timezone selector pinned to bottom of sidebar -->
             <div class="sidebar-tz">
                 <div class="tz-label">🌐 TZ</div>
                 <select id="tz-select" class="tz-select" onchange="onTzChange(this.value)">
-                    <option value="">Loading…</option>
+                    <option value="">UTC</option>
                 </select>
             </div>
         </div>
@@ -46,8 +45,8 @@
         <!-- ── Chat panel ────────────────────────────────────────────────────── -->
         <div class="chat-panel">
             <div class="chat-header">
-                <div class="status-dot" style="background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.18)"></div>
-                <h1>Currency Assistant</h1>
+                <div class="status-dot" style="background:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,.18)"></div>
+                <h1>Translation Assistant</h1>
                 <small id="username-display" style="margin-left:auto;margin-right:8px"></small>
                 <button onclick="doLogout()" class="logout-btn">Logout</button>
             </div>
@@ -55,17 +54,20 @@
             <div id="log"></div>
 
             <div class="chips">
-                <span class="chip" onclick="quickSend('Convert 100 USD to EUR')">💵→💶 USD/EUR</span>
-                <span class="chip" onclick="quickSend('What is the exchange rate for GBP to JPY?')">💷→¥ GBP/JPY</span>
-                <span class="chip" onclick="quickSend('How much is 500 euros in Vietnamese dong?')">💶→🇻🇳
-                    EUR/VND</span>
-                <span class="chip" onclick="quickSend('Convert 1000 AUD to USD')">🇦🇺→💵 AUD/USD</span>
-                <span class="chip" onclick="quickSend('What is 1 Bitcoin worth in USD?')">₿→💵 BTC/USD</span>
+                <span class="chip" onclick="quickSend('Translate &quot;hello&quot; to Vietnamese')">🇻🇳 →
+                    Vietnamese</span>
+                <span class="chip" onclick="quickSend('Translate &quot;xin chào&quot; to English')">🇬🇧 →
+                    English</span>
+                <span class="chip" onclick="quickSend('How do you say &quot;thank you&quot; in Japanese?')">🇯🇵 →
+                    Japanese</span>
+                <span class="chip" onclick="quickSend('Translate &quot;good morning&quot; to French')">🇫🇷 →
+                    French</span>
+                <span class="chip" onclick="quickSend('Translate &quot;bonjour&quot; to Spanish')">🇪🇸 → Spanish</span>
             </div>
 
             <div class="input-row">
-                <input id="input" type="text" placeholder="Ask about exchange rates or conversions…" autocomplete="off"
-                    onkeydown="if(event.key==='Enter') send()" />
+                <input id="input" type="text" placeholder='Try: Translate "hello world" to Vietnamese'
+                    autocomplete="off" onkeydown="if(event.key==='Enter') send()" />
                 <button id="btn" onclick="send()">Send</button>
             </div>
         </div>
@@ -80,8 +82,8 @@
                 </div>
             </div>
             <div class="persist-badge"
-                style="background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.2);color:#fbbf24;">
-                Saved per account — currency history
+                style="background:rgba(139,92,246,.08);border-color:rgba(139,92,246,.2);color:#a78bfa;">
+                Saved per account — translation history
             </div>
             <div class="hist-search-wrap">
                 <input type="text" id="hist-search" class="hist-search" placeholder="Search history…"
@@ -92,8 +94,65 @@
 
     </div>
 
+    <style>
+        /* ── Translation card ───────────────────────────────────────────────── */
+        .translation-card {
+            background: linear-gradient(135deg, #7c3aed, #8b5cf6);
+            color: #fff;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, .15);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 360px;
+        }
+
+        .tc-langs {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            opacity: .9;
+        }
+
+        .tc-lang {
+            background: rgba(255, 255, 255, .2);
+            padding: 3px 10px;
+            border-radius: 5px;
+            font-weight: 600;
+            font-size: 12px;
+            letter-spacing: .3px;
+        }
+
+        .tc-arrow {
+            font-size: 16px;
+        }
+
+        .tc-original {
+            font-size: 13px;
+            opacity: .85;
+            font-style: italic;
+            border-left: 2px solid rgba(255, 255, 255, .4);
+            padding-left: 10px;
+        }
+
+        .tc-translated {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -.3px;
+        }
+
+        .tc-source {
+            font-size: 10px;
+            opacity: .6;
+            margin-top: 2px;
+        }
+    </style>
+
     <script>
-        const PAGE = 'currency';
+        const PAGE = 'translation';
         const THEME_KEY = 'app_theme';
         const TZ_KEY = 'app_timezone';
 
@@ -104,117 +163,45 @@
         const themeBtn = document.getElementById('theme-btn');
         const tzSelect = document.getElementById('tz-select');
 
-        // ── Timezone state ───────────────────────────────────────────────────────────
         let currentTz = localStorage.getItem(TZ_KEY) || 'UTC';
 
-        // ── Unified time formatters ──────────────────────────────────────────────────
-        function toTZ(utcStr) {
-            const date = new Date(utcStr.replace(' ', 'T') + 'Z');
-            return date.toLocaleTimeString([], {
-                hour: '2-digit', minute: '2-digit', timeZone: currentTz
-            });
-        }
-
+        // ── Time helpers ─────────────────────────────────────────────────────────
         function toTZFull(utcStr) {
             const date = new Date(utcStr.replace(' ', 'T') + 'Z');
             return date.toLocaleString([], {
                 month: 'short', day: 'numeric',
-                hour: '2-digit', minute: '2-digit',
-                timeZone: currentTz
+                hour: '2-digit', minute: '2-digit', timeZone: currentTz
             });
         }
-
         function nowInTZ() {
             return new Date().toLocaleTimeString([], {
                 hour: '2-digit', minute: '2-digit', timeZone: currentTz
             });
         }
-
         function escHtml(s) {
             return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         }
 
-        function fmtNum(n, decimals = 2) {
-            return Number(n).toLocaleString(undefined, {
-                minimumFractionDigits: decimals, maximumFractionDigits: decimals
-            });
-        }
-
-        // ── Timezone dropdown ────────────────────────────────────────────────────────
-        function utcOffsetLabel(tz) {
-            try {
-                const parts = new Intl.DateTimeFormat('en', {
-                    timeZone: tz, timeZoneName: 'shortOffset'
-                }).formatToParts(new Date());
-                const offset = parts.find(p => p.type === 'timeZoneName')?.value || 'UTC';
-                return offset;
-            } catch { return 'UTC'; }
-        }
-
-        function buildOptions(list) {
-            tzSelect.innerHTML = list.map(tz => {
-                const offset = utcOffsetLabel(tz);
-                const label = tz.replace(/_/g, ' ');
-                return `<option value="${tz}" ${tz === currentTz ? 'selected' : ''}>${label} (${offset})</option>`;
-            }).join('');
-        }
-
-        async function loadTimezones() {
-            try {
-                const res = await fetch('https://worldtimeapi.org/api/timezone');
-                const list = await res.json();
-                buildOptions(list);
-            } catch {
-                const fallback = [
-                    'UTC', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
-                    'America/Sao_Paulo', 'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Europe/Moscow',
-                    'Africa/Cairo', 'Asia/Dubai', 'Asia/Kolkata', 'Asia/Bangkok', 'Asia/Ho_Chi_Minh',
-                    'Asia/Shanghai', 'Asia/Tokyo', 'Asia/Seoul', 'Australia/Sydney', 'Pacific/Auckland'
-                ];
-                buildOptions(fallback);
-            }
-        }
-
-        async function onTzChange(tz) {
-            currentTz = tz;
-            localStorage.setItem(TZ_KEY, tz);
-            try {
-                await fetch('/user/settings', {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ timezone: tz })
-                });
-            } catch { }
-            renderHistory(document.getElementById('hist-search').value);
-        }
-
-        // ── Rate card builder ────────────────────────────────────────────────────────
-        function buildBotHtml(replyText, rd) {
+        // ── Translation card builder ─────────────────────────────────────────────
+        function buildBotHtml(replyText, td) {
             let cardHtml = '';
-            if (rd) {
+            if (td) {
                 cardHtml = `
-          <div class="rate-card">
-            <div class="rc-pair">
-              <span class="rc-code">${escHtml(rd.base)}</span>
-              <span class="rc-arrow">→</span>
-              <span class="rc-code">${escHtml(rd.target)}</span>
+          <div class="translation-card">
+            <div class="tc-langs">
+              <span class="tc-lang">${escHtml(td.sourceLangName)}</span>
+              <span class="tc-arrow">→</span>
+              <span class="tc-lang">${escHtml(td.targetLangName)}</span>
             </div>
-            <div class="rc-rate">
-              1 ${escHtml(rd.base)} = <strong>${fmtNum(rd.rate, 4)}</strong> ${escHtml(rd.target)}
-            </div>
-            ${rd.amount !== 1 ? `
-            <div class="rc-conversion">
-              ${fmtNum(rd.amount)} ${escHtml(rd.base)}
-              <span class="rc-eq">=</span>
-              <strong>${fmtNum(rd.converted)}</strong> ${escHtml(rd.target)}
-            </div>` : ''}
-            <div class="rc-source">Live rate · ExchangeRate-API</div>
+            <div class="tc-original">"${escHtml(td.originalText)}"</div>
+            <div class="tc-translated">${escHtml(td.translatedText)}</div>
+            <div class="tc-source">Powered by LibreTranslate</div>
           </div>`;
             }
             return cardHtml + `<div>${escHtml(replyText)}</div>`;
         }
 
-        // ── Chat rendering ───────────────────────────────────────────────────────────
+        // ── Chat rendering ────────────────────────────────────────────────────────
         function addMsg(role, html, utcStr) {
             const outer = document.createElement('div');
             outer.className = 'msg ' + role;
@@ -244,7 +231,7 @@
             return outer;
         }
 
-        // ── Server-side history ──────────────────────────────────────────────────────
+        // ── Server-side history ───────────────────────────────────────────────────
         async function loadHistory() {
             try {
                 const res = await fetch('/history?page=' + PAGE);
@@ -252,34 +239,30 @@
                 return await res.json();
             } catch { return []; }
         }
-
-        async function addToHistory(question, answer, rateData = null) {
+        async function addToHistory(question, answer, translationData = null) {
             try {
                 await fetch('/history', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ page: PAGE, question, answer, extra: rateData })
+                    body: JSON.stringify({ page: PAGE, question, answer, extra: translationData })
                 });
                 renderHistory(document.getElementById('hist-search').value);
             } catch { }
         }
-
         async function deleteHistoryItem(id) {
             try {
                 await fetch('/history?id=' + id, { method: 'DELETE' });
                 renderHistory(document.getElementById('hist-search').value);
             } catch { }
         }
-
         async function clearHistory() {
-            if (!confirm('Clear all currency chat history?')) return;
+            if (!confirm('Clear all translation history?')) return;
             try {
                 await fetch('/history?page=' + PAGE, { method: 'DELETE' });
                 document.getElementById('hist-search').value = '';
                 renderHistory();
             } catch { }
         }
-
         async function renderHistory(query = '') {
             let entries = await loadHistory();
             if (query) {
@@ -291,16 +274,15 @@
             if (!entries.length) {
                 historyList.innerHTML = query
                     ? '<p class="hist-empty">No matches found.</p>'
-                    : '<p class="hist-empty">No history yet.<br>Ask me to convert<br>any currency!</p>';
+                    : '<p class="hist-empty">No history yet.<br>Try translating something!</p>';
                 return;
             }
             [...entries].reverse().forEach(entry => {
                 const item = document.createElement('div');
                 item.className = 'hist-item';
-                const displayTime = toTZFull(entry.time);
                 item.innerHTML = `
           <div class="hist-time">
-            <span>${displayTime}</span>
+            <span>${toTZFull(entry.time)}</span>
             <button class="hist-del" title="Delete">✖</button>
           </div>
           <div class="hist-q">${escHtml(entry.question)}</div>
@@ -317,12 +299,44 @@
             });
         }
 
-        async function doLogout() {
-            await fetch('/auth/logout', { method: 'POST' });
-            window.location.href = '/login';
+        // ── Timezone ──────────────────────────────────────────────────────────────
+        function utcOffsetLabel(tz) {
+            try {
+                const parts = new Intl.DateTimeFormat('en', {
+                    timeZone: tz, timeZoneName: 'shortOffset'
+                }).formatToParts(new Date());
+                return parts.find(p => p.type === 'timeZoneName')?.value || 'UTC';
+            } catch { return 'UTC'; }
+        }
+        async function loadTimezones() {
+            try {
+                const res = await fetch('https://worldtimeapi.org/api/timezone');
+                const list = await res.json();
+                tzSelect.innerHTML = list.map(tz => {
+                    const label = tz.replace(/_/g, ' ');
+                    return `<option value="${tz}" ${tz === currentTz ? 'selected' : ''}>${label} (${utcOffsetLabel(tz)})</option>`;
+                }).join('');
+            } catch {
+                const fallback = ['UTC', 'America/New_York', 'Europe/London', 'Asia/Ho_Chi_Minh', 'Asia/Tokyo'];
+                tzSelect.innerHTML = fallback.map(tz =>
+                    `<option value="${tz}" ${tz === currentTz ? 'selected' : ''}>${tz.replace(/_/g, ' ')} (${utcOffsetLabel(tz)})</option>`
+                ).join('');
+            }
+        }
+        async function onTzChange(tz) {
+            currentTz = tz;
+            localStorage.setItem(TZ_KEY, tz);
+            try {
+                await fetch('/user/settings', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ timezone: tz })
+                });
+            } catch { }
+            renderHistory(document.getElementById('hist-search').value);
         }
 
-        // ── Send ─────────────────────────────────────────────────────────────────────
+        // ── Send ──────────────────────────────────────────────────────────────────
         async function send() {
             const text = input.value.trim();
             if (!text) return;
@@ -331,31 +345,37 @@
             const indicator = typingBubble();
             btn.disabled = true;
 
-            let rawText = '', rateData = null;
+            let rawText = '', translationData = null;
             const t0 = Date.now();
             try {
-                const res = await fetch('/currency-chat', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                const res = await fetch('/translate-chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: text })
                 });
                 const data = await res.json();
                 rawText = data.reply || data.error || 'No response.';
-                rateData = data.rateData || null;
+                translationData = data.translationData || null;
             } catch { rawText = 'Could not reach the server.'; }
 
             const elapsed = Date.now() - t0;
             if (elapsed < 600) await new Promise(r => setTimeout(r, 600 - elapsed));
 
             indicator.remove();
-            addMsg('bot', buildBotHtml(rawText, rateData));
-            addToHistory(text, rawText, rateData);
+            addMsg('bot', buildBotHtml(rawText, translationData));
+            addToHistory(text, rawText, translationData);
             btn.disabled = false;
             input.focus();
         }
 
         function quickSend(text) { input.value = text; send(); }
 
-        // ── Theme ────────────────────────────────────────────────────────────────────
+        async function doLogout() {
+            await fetch('/auth/logout', { method: 'POST' });
+            window.location.href = '/login';
+        }
+
+        // ── Theme ─────────────────────────────────────────────────────────────────
         function initTheme() {
             if (localStorage.getItem(THEME_KEY) === 'light') {
                 document.body.classList.add('light-mode');
@@ -368,7 +388,7 @@
             localStorage.setItem(THEME_KEY, light ? 'light' : 'dark');
         }
 
-        // ── Boot ─────────────────────────────────────────────────────────────────────
+        // ── Boot ──────────────────────────────────────────────────────────────────
         initTheme();
         (async () => {
             try {
@@ -376,7 +396,6 @@
                 const meData = await meRes.json();
                 if (!meData.ok) { window.location.href = '/login'; return; }
                 document.getElementById('username-display').textContent = '👤 ' + meData.username;
-
                 const tzRes = await fetch('/user/settings');
                 const tzData = await tzRes.json();
                 if (tzData.ok && tzData.timezone) {
@@ -384,84 +403,11 @@
                     localStorage.setItem(TZ_KEY, currentTz);
                 }
             } catch { }
-
             await loadTimezones();
             renderHistory();
-            addMsg('bot', 'Hi! I can help with currency conversions using live exchange rates.\n\nTry: "Convert 100 USD to EUR" or "What is GBP to JPY?"');
+            addMsg('bot', 'Hi! I can translate text between languages.\n\nTry: "Translate \'hello\' to Vietnamese" or "How do you say \'thank you\' in Japanese?"');
         })();
     </script>
-
-    <style>
-        .rate-card {
-            background: linear-gradient(135deg, #d97706, #f59e0b);
-            color: #fff;
-            border-radius: 12px;
-            padding: 16px 20px;
-            margin-bottom: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, .15);
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            max-width: 320px;
-        }
-
-        .rc-pair {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 13px;
-            opacity: .9;
-        }
-
-        .rc-code {
-            background: rgba(255, 255, 255, .2);
-            padding: 3px 8px;
-            border-radius: 5px;
-            font-weight: 700;
-            font-size: 13px;
-            letter-spacing: .5px;
-        }
-
-        .rc-arrow {
-            font-size: 16px;
-        }
-
-        .rc-rate {
-            font-size: 15px;
-            opacity: .95;
-        }
-
-        .rc-rate strong {
-            font-size: 22px;
-            font-weight: 700;
-            letter-spacing: -.5px;
-        }
-
-        .rc-conversion {
-            border-top: 1px solid rgba(255, 255, 255, .25);
-            padding-top: 8px;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-
-        .rc-conversion strong {
-            font-size: 18px;
-            font-weight: 700;
-        }
-
-        .rc-eq {
-            opacity: .7;
-        }
-
-        .rc-source {
-            font-size: 10px;
-            opacity: .65;
-            margin-top: 2px;
-        }
-    </style>
 </body>
 
 </html>

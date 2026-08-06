@@ -23,6 +23,10 @@
           <span class="tab-icon">💱</span>
           <span class="tab-label">Currency</span>
         </a>
+        <a class="sidebar-tab" href="/translation" title="Translation">
+          <span class="tab-icon">🌐</span>
+          <span class="tab-label">Translate</span>
+        </a>
         <a class="sidebar-tab active" href="/knowledge" title="Knowledge">
           <span class="tab-icon">🧠</span>
           <span class="tab-label">Knowledge</span>
@@ -63,6 +67,7 @@
               <select id="collection-select">
                 <option value="weather_knowledge">🌤️ Weather Agent</option>
                 <option value="currency_knowledge">💱 Currency Agent</option>
+                <option value="translation_knowledge">🌐 Translation Agent</option>
               </select>
             </div>
 
@@ -320,7 +325,7 @@
       entry.innerHTML = `
         <div class="log-url">${escHtml(url)}</div>
         <div class="log-meta">
-          ${collection === 'weather_knowledge' ? '🌤️ Weather' : '💱 Currency'} ·
+          ${collection === 'weather_knowledge' ? '🌤️ Weather' : collection === 'currency_knowledge' ? '💱 Currency' : '🌐 Translation'} ·
           depth=${depth} ·
           <span class="${status === 'ok' ? 'log-ok' : 'log-err'}">${escHtml(detail)}</span>
         </div>`;
@@ -356,7 +361,9 @@
         const data = await res.json();
 
         if (data.ok) {
-          const agent = collection === 'weather_knowledge' ? '🌤️ Weather' : '💱 Currency';
+          const agent = collection === 'weather_knowledge' ? '🌤️ Weather'
+                      : collection === 'currency_knowledge' ? '💱 Currency'
+                      : '🌐 Translation';
           showSuccess(
             `Done! Ingested ${data.pagesIngested} page(s) and ${data.chunksIngested} chunks `
             + `into the ${agent} agent. The AI will now use this content.`

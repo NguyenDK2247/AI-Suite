@@ -30,4 +30,10 @@ public class AgentConfig {
     public GroqService currencyGroqService() {
         return new GroqService(groqApiKey, GroqService.CURRENCY_PROMPT);
     }
+
+    // Named bean for translation agent
+    @Bean("translationGroq")
+    public GroqService translationGroqService() {
+        return new GroqService(groqApiKey, GroqService.TRANSLATION_PROMPT);
+    }
 }

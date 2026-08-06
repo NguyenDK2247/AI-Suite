@@ -18,45 +18,65 @@ public class PageController {
         this.sessionService = sessionService;
     }
 
+    @GetMapping("/favicon.ico")
+    public ResponseEntity<Void> favicon() {
+        return ResponseEntity.noContent().build();
+    }
+
+    // ── Protected pages ───────────────────────────────────────────────────────
     @GetMapping(value = "/", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<Resource> index(HttpServletRequest request) {
-        return requireAuth(request)
-                ? serveStatic("static/index.html")
-                : redirect("/login");
+        return requireAuth(request) ? html("index.html") : redirect("/login");
     }
 
     @GetMapping(value = "/currency", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<Resource> currency(HttpServletRequest request) {
-        return requireAuth(request)
-                ? serveStatic("static/currency.html")
-                : redirect("/login");
+        return requireAuth(request) ? html("currency.html") : redirect("/login");
+    }
+
+    @GetMapping(value = "/translation", produces = MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<Resource> translation(HttpServletRequest request) {
+        return requireAuth(request) ? html("translation.html") : redirect("/login");
     }
 
     @GetMapping(value = "/knowledge", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<Resource> knowledge(HttpServletRequest request) {
-        return requireAuth(request)
-                ? serveStatic("static/ingest.html")
-                : redirect("/login");
+        return requireAuth(request) ? html("ingest.html") : redirect("/login");
     }
 
+    // ── Public auth pages ─────────────────────────────────────────────────────
     @GetMapping(value = "/login", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<Resource> login() {
-        return serveStatic("static/login.html");
+        return html("login.html");
     }
 
     @GetMapping(value = "/signup", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<Resource> signup() {
-        return serveStatic("static/signup.html");
+        return html("signup.html");
+    }
+
+    // ── Static assets ─────────────────────────────────────────────────────────
+    @GetMapping(value = "/styles.css", produces = "text/css")
+    public ResponseEntity<Resource> stylesCss() {
+        return css("styles.css");
+    }
+
+    @GetMapping(value = "/auth.css", produces = "text/css")
+    public ResponseEntity<Resource> authCss() {
+        return css("auth.css");
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-    @SuppressWarnings("null")
-    private ResponseEntity<Resource> serveStatic(String path) {
-        @SuppressWarnings("null")
-        Resource resource = new ClassPathResource(path);
+    private ResponseEntity<Resource> html(String filename) {
         return ResponseEntity.ok()
                 .contentType(MediaType.TEXT_HTML)
-                .body(resource);
+                .body(new ClassPathResource("static/" + filename));
+    }
+
+    private ResponseEntity<Resource> css(String filename) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/css"))
+                .body(new ClassPathResource("static/" + filename));
     }
 
     private ResponseEntity<Resource> redirect(String location) {
