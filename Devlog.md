@@ -254,5 +254,18 @@ A running record of every feature, enhancement, and fix built for this project. 
   - `static/currency.html` - same token display pattern; fixed stray extra `}` left by sed replacement
   - `static/translation.html` - same token display pattern; fixed stray extra `}` left by sed replacement
   - `static/styles.css` - added `.token-badge` style (10px, muted color, 0.7 opacity)
-- **Depends on:** Entry 011 (Spring Boot), Entry 012 (all three agents), Groq API
+- **Depends on:** Entry `011` (Spring Boot), Entry `012` (all three agents), Groq API
 - **Notes:** `INSERT ... ON CONFLICT(user_id, date) DO UPDATE SET total_tokens = total_tokens + excluded.total_tokens` is SQLite's upsert syntax - requires SQLite 3.24+. The daily limit of 500,000 is hardcoded in `TokenService.getDailyLimit()` for LLaMA 3.3 70B Versatile on Groq's free tier; update this constant if you switch models or upgrade your Groq plan. Extra `}` braces introduced by `sed` replacements inside existing function blocks are a common pitfall - always verify the resulting file structure after sed edits. `HttpTimeoutException` extends `IOException` so catching both in a multi-catch is a compile error - `IOException` alone is sufficient.
+
+---
+
+### 014 - Unicode Character Fix (CJK and Non-ASCII)
+- **Type:** Fix
+- **Status:** Complete
+- **Description:** Non-ASCII characters (Chinese, Japanese, Korean, Arabic, Hebrew, etc.) were rendering as empty strings in bot responses and translated text. Groq's API and LibreTranslate both return non-ASCII characters as JSON Unicode escape sequences (`\uXXXX`) rather than literal UTF-8 characters. The manual JSON parsers in `GroqService`, `TranslationService`, and `VectorStore` only handled `\n`, `\"`, and `\\` but silently passed `\uXXXX` through unchanged, which browsers could not render as characters.
+- **Implemented:**
+  - `service/GroqService.java` - `unescape()` rewritten to walk the string character by character; detects `\u` followed by exactly 4 hex digits, converts to a Unicode codepoint via `Integer.parseInt(..., 16)`, and appends the actual character via `appendCodePoint()`; covers all Unicode planes including CJK Unified Ideographs, Arabic, Hebrew, Cyrillic, etc.
+  - `service/TranslationService.java` - same logic added as `unescapeJson()` replacing the one-liner in `extractString()`; fixes translated Chinese/Japanese/Korean text returned by LibreTranslate
+  - `service/VectorStore.java` - same `unescapeJson()` helper added and applied in `parseDocuments()`; fixes RAG chunks containing non-ASCII content from ingested pages
+- **Depends on:** Entry `012` (Translation Agent), Entry `008` (RAG Pipeline)
+- **Notes:** This bug affects any language with characters outside the ASCII range - not just CJK. Any service that manually parses JSON strings rather than using a proper JSON library (Jackson, Gson) must implement `\uXXXX` decoding explicitly. The correct fix pattern is to check for `\` + `u` + 4 hex digits and call `appendCodePoint(Integer.parseInt(hex, 16))`. Using Jackson's `ObjectMapper` to parse Groq/API responses would eliminate this class of bug entirely and is worth considering in a future refactor.

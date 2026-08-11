@@ -67,6 +67,7 @@ public class PageController {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+    @SuppressWarnings("null")
     private ResponseEntity<Resource> html(String filename) {
         return ResponseEntity.ok()
                 .contentType(MediaType.TEXT_HTML)

@@ -185,8 +185,8 @@ public class VectorStore {
         for (String token : splitJsonStrings(innerStr)) {
             String cleaned = token.trim();
             if (cleaned.startsWith("\"") && cleaned.endsWith("\"")) {
-                cleaned = cleaned.substring(1, cleaned.length() - 1)
-                        .replace("\\n", "\n").replace("\\\"", "\"").replace("\\\\", "\\");
+                cleaned = cleaned.substring(1, cleaned.length() - 1);
+                cleaned = unescapeJson(cleaned);
                 results.add(cleaned);
             }
         }
@@ -305,6 +305,30 @@ public class VectorStore {
         int start = i + search.length();
         int end = json.indexOf("\"", start);
         return end == -1 ? "" : json.substring(start, end);
+    }
+
+    private String unescapeJson(String s) {
+        s = s.replace("\\n", "\n").replace("\\\"", "\"")
+                .replace("\\\\", "\\").replace("\\r", "\r").replace("\\t", "\t");
+        if (!s.contains("\\u"))
+            return s;
+        StringBuilder sb = new StringBuilder();
+        int i = 0;
+        while (i < s.length()) {
+            if (i + 5 < s.length() && s.charAt(i) == '\\' && s.charAt(i + 1) == 'u'
+                    && isHex(s.charAt(i + 2)) && isHex(s.charAt(i + 3))
+                    && isHex(s.charAt(i + 4)) && isHex(s.charAt(i + 5))) {
+                sb.appendCodePoint(Integer.parseInt(s.substring(i + 2, i + 6), 16));
+                i += 6;
+            } else {
+                sb.append(s.charAt(i++));
+            }
+        }
+        return sb.toString();
+    }
+
+    private boolean isHex(char c) {
+        return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
     }
 
     private String escJson(String s) {

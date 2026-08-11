@@ -168,6 +168,39 @@ public class GroqService {
     }
 
     private String unescape(String s) {
-        return s.replace("\\n", "\n").replace("\\\"", "\"").replace("\\\\", "\\");
+        s = s.replace("\\n", "\n")
+                .replace("\\\"", "\"")
+                .replace("\\\\", "\\")
+                .replace("\\r", "\r")
+                .replace("\\t", "\t");
+
+        // Decode \\uXXXX Unicode escapes (e.g. Chinese, Japanese, Korean characters)
+        if (!s.contains("\\u"))
+            return s;
+        StringBuilder sb = new StringBuilder();
+        int i = 0;
+        while (i < s.length()) {
+            if (i + 5 < s.length()
+                    && s.charAt(i) == '\\'
+                    && s.charAt(i + 1) == 'u'
+                    && isHex(s.charAt(i + 2))
+                    && isHex(s.charAt(i + 3))
+                    && isHex(s.charAt(i + 4))
+                    && isHex(s.charAt(i + 5))) {
+                int codePoint = Integer.parseInt(s.substring(i + 2, i + 6), 16);
+                sb.appendCodePoint(codePoint);
+                i += 6;
+            } else {
+                sb.append(s.charAt(i));
+                i++;
+            }
+        }
+        return sb.toString();
+    }
+
+    private boolean isHex(char c) {
+        return (c >= '0' && c <= '9')
+                || (c >= 'a' && c <= 'f')
+                || (c >= 'A' && c <= 'F');
     }
 }
