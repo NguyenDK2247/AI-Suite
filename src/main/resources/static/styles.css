@@ -798,3 +798,12 @@ body {
     color: #f87171;
     border-color: #f87171;
 }
+
+/* ── Token badge on bot messages ────────────────────────────────────────────── */
+.token-badge {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px;
+    padding: 0 2px;
+    opacity: 0.7;
+}

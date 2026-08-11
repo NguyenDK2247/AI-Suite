@@ -2,6 +2,7 @@ package com.aisuite.controller;
 
 import com.aisuite.service.GroqService;
 import com.aisuite.service.RagService;
+import com.aisuite.service.TokenService;
 import com.aisuite.service.TranslationService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -42,13 +43,16 @@ public class TranslationController {
     private final TranslationService translationService;
     private final GroqService groqService;
     private final RagService ragService;
+    private final TokenService tokenService;
 
     public TranslationController(TranslationService translationService,
             @Qualifier("translationGroq") GroqService groqService,
-            RagService ragService) {
+            RagService ragService,
+            TokenService tokenService) {
         this.translationService = translationService;
         this.groqService = groqService;
         this.ragService = ragService;
+        this.tokenService = tokenService;
     }
 
     @PostMapping("/translate-chat")
@@ -79,25 +83,25 @@ public class TranslationController {
             }
 
             // Try to extract text and languages from the message
-            TranslationService.TranslationResult result = detectAndTranslate(userMessage);
+            TranslationService.TranslationResult translation = detectAndTranslate(userMessage);
 
             String promptForGroq;
             Object translationData = null;
 
-            if (result != null) {
+            if (translation != null) {
                 promptForGroq = userMessage + "\n\n[Translation result: \""
-                        + result.originalText() + "\" ("
-                        + result.sourceLangName() + ") → \""
-                        + result.translatedText() + "\" ("
-                        + result.targetLangName() + ")]";
+                        + translation.originalText() + "\" ("
+                        + translation.sourceLangName() + ") → \""
+                        + translation.translatedText() + "\" ("
+                        + translation.targetLangName() + ")]";
 
                 translationData = Map.of(
-                        "originalText", result.originalText(),
-                        "translatedText", result.translatedText(),
-                        "sourceLanguage", result.sourceLanguage(),
-                        "targetLanguage", result.targetLanguage(),
-                        "sourceLangName", result.sourceLangName(),
-                        "targetLangName", result.targetLangName());
+                        "originalText", translation.originalText(),
+                        "translatedText", translation.translatedText(),
+                        "sourceLanguage", translation.sourceLanguage(),
+                        "targetLanguage", translation.targetLanguage(),
+                        "sourceLangName", translation.sourceLangName(),
+                        "targetLangName", translation.targetLangName());
             } else {
                 promptForGroq = userMessage;
             }
@@ -105,12 +109,24 @@ public class TranslationController {
             if (!ragContext.isEmpty())
                 promptForGroq = ragContext + "\n\n" + promptForGroq;
 
-            String reply = groqService.chat(promptForGroq);
+            GroqService.ChatResult chatResult = groqService.chatWithUsage(promptForGroq);
+            String reply = chatResult.reply();
+            GroqService.TokenUsage usage = chatResult.usage();
+
+            int userId = (int) request.getAttribute("userId");
+            tokenService.addTokens(userId, usage.totalTokens());
+            int todayTotal = tokenService.getTodayTotal(userId);
 
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("reply", reply);
             if (translationData != null)
                 response.put("translationData", translationData);
+            response.put("tokenUsage", Map.of(
+                    "promptTokens", usage.promptTokens(),
+                    "completionTokens", usage.completionTokens(),
+                    "totalTokens", usage.totalTokens(),
+                    "todayTotal", todayTotal,
+                    "dailyLimit", tokenService.getDailyLimit()));
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {

@@ -60,7 +60,21 @@ public class GroqService {
         this.http = HttpClient.newHttpClient();
     }
 
-    public String chat(String userMessage) throws IOException, InterruptedException {
+    // ── Token usage tracking ──────────────────────────────────────────────────
+    public record TokenUsage(int promptTokens, int completionTokens, int totalTokens) {
+    }
+
+    public record ChatResult(String reply, TokenUsage usage) {
+    }
+
+    private int sessionTotalTokens = 0;
+
+    public int getSessionTotalTokens() {
+        return sessionTotalTokens;
+    }
+
+    public ChatResult chatWithUsage(String userMessage)
+            throws IOException, InterruptedException {
         history.add(new String[] { "user", userMessage });
 
         HttpRequest request = HttpRequest.newBuilder()
@@ -78,12 +92,21 @@ public class GroqService {
                     + " — " + response.body());
 
         String reply = extractReply(response.body());
+        TokenUsage usage = extractUsage(response.body());
+
+        sessionTotalTokens += usage.totalTokens();
         history.add(new String[] { "assistant", reply });
-        return reply;
+        return new ChatResult(reply, usage);
+    }
+
+    // Keep the old method for compatibility
+    public String chat(String userMessage) throws IOException, InterruptedException {
+        return chatWithUsage(userMessage).reply();
     }
 
     public void resetHistory() {
         history.clear();
+        sessionTotalTokens = 0;
     }
 
     private String buildRequestBody() {
@@ -98,6 +121,31 @@ public class GroqService {
         return "{\"model\":\"" + MODEL + "\","
                 + "\"max_tokens\":1000,"
                 + "\"messages\":" + messages + "}";
+    }
+
+    private TokenUsage extractUsage(String json) {
+        int promptTokens = extractInt(json, "prompt_tokens");
+        int completionTokens = extractInt(json, "completion_tokens");
+        int totalTokens = extractInt(json, "total_tokens");
+        return new TokenUsage(promptTokens, completionTokens, totalTokens);
+    }
+
+    private int extractInt(String json, String key) {
+        String search = "\"" + key + "\":";
+        int i = json.indexOf(search);
+        if (i == -1)
+            return 0;
+        int start = i + search.length();
+        while (start < json.length() && json.charAt(start) == ' ')
+            start++;
+        int end = start;
+        while (end < json.length() && Character.isDigit(json.charAt(end)))
+            end++;
+        try {
+            return Integer.parseInt(json.substring(start, end));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
     private String extractReply(String json) {

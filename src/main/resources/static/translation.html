@@ -48,6 +48,7 @@
                 <div class="status-dot" style="background:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,.18)"></div>
                 <h1>Translation Assistant</h1>
                 <small id="username-display" style="margin-left:auto;margin-right:8px"></small>
+                <small id="token-display" style="margin-right:8px;color:var(--muted);font-size:11px"></small>
                 <button onclick="doLogout()" class="logout-btn">Logout</button>
             </div>
 
@@ -164,6 +165,7 @@
         const tzSelect = document.getElementById('tz-select');
 
         let currentTz = localStorage.getItem(TZ_KEY) || 'UTC';
+        let sessionTotalTokens = 0;
 
         // ── Time helpers ─────────────────────────────────────────────────────────
         function toTZFull(utcStr) {
@@ -182,6 +184,23 @@
             return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         }
 
+        function fmtTokens(n) { return Number(n).toLocaleString(); }
+
+        function updateTokenDisplay(usage) {
+            if (!usage) return;
+            const todayTotal = usage.todayTotal ?? 0;
+            const dailyLimit = usage.dailyLimit ?? 500000;
+            const display = document.getElementById('token-display');
+            display.textContent =
+                `↗ ${fmtTokens(usage.totalTokens)} this msg  |  ${fmtTokens(todayTotal)} / ${fmtTokens(dailyLimit)} today`;
+        }
+
+        function updateTokenDisplayFromTotal(todayTotal, dailyLimit) {
+            const display = document.getElementById('token-display');
+            if (display) display.textContent =
+                `${fmtTokens(todayTotal)} / ${fmtTokens(dailyLimit)} tokens used today`;
+        }
+
         // ── Translation card builder ─────────────────────────────────────────────
         function buildBotHtml(replyText, td) {
             let cardHtml = '';
@@ -198,7 +217,8 @@
             <div class="tc-source">Powered by LibreTranslate</div>
           </div>`;
             }
-            return cardHtml + `<div>${escHtml(replyText)}</div>`;
+            return cardHtml + `<div>${escHtml(replyText)}</div>`
+                + (arguments[2] ? `<div class="token-badge">↗ ${fmtTokens(arguments[2])} tokens</div>` : '');
         }
 
         // ── Chat rendering ────────────────────────────────────────────────────────
@@ -345,7 +365,7 @@
             const indicator = typingBubble();
             btn.disabled = true;
 
-            let rawText = '', translationData = null;
+            let rawText = '', translationData = null, tokenUsage = null;
             const t0 = Date.now();
             try {
                 const res = await fetch('/translate-chat', {
@@ -356,13 +376,15 @@
                 const data = await res.json();
                 rawText = data.reply || data.error || 'No response.';
                 translationData = data.translationData || null;
+                tokenUsage = data.tokenUsage || null;
             } catch { rawText = 'Could not reach the server.'; }
 
             const elapsed = Date.now() - t0;
             if (elapsed < 600) await new Promise(r => setTimeout(r, 600 - elapsed));
 
             indicator.remove();
-            addMsg('bot', buildBotHtml(rawText, translationData));
+            addMsg('bot', buildBotHtml(rawText, translationData, tokenUsage?.totalTokens));
+            updateTokenDisplay(tokenUsage);
             addToHistory(text, rawText, translationData);
             btn.disabled = false;
             input.focus();
@@ -402,6 +424,10 @@
                     currentTz = tzData.timezone;
                     localStorage.setItem(TZ_KEY, currentTz);
                 }
+
+                const tkRes = await fetch('/tokens');
+                const tkData = await tkRes.json();
+                updateTokenDisplayFromTotal(tkData.todayTotal, tkData.dailyLimit);
             } catch { }
             await loadTimezones();
             renderHistory();

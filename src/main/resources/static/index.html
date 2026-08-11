@@ -49,6 +49,7 @@
         <div class="status-dot"></div>
         <h1>Weather Assistant</h1>
         <small id="username-display" style="margin-left:auto;margin-right:8px"></small>
+        <small id="token-display" style="margin-right:8px;color:var(--muted);font-size:11px"></small>
         <button onclick="doLogout()" class="logout-btn">Logout</button>
       </div>
 
@@ -102,6 +103,7 @@
 
     // ── Timezone state (set during boot from server) ─────────────────────────────
     let currentTz = localStorage.getItem(TZ_KEY) || 'UTC';
+    let sessionTotalTokens = 0;
 
     // ── Unified time formatters — ALL times on the page go through these ─────────
     function toTZ(utcStr) {
@@ -130,6 +132,25 @@
 
     function escHtml(s) {
       return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function updateTokenDisplay(usage) {
+      if (!usage) return;
+      const todayTotal = usage.todayTotal ?? 0;
+      const dailyLimit = usage.dailyLimit ?? 500000;
+      const display = document.getElementById('token-display');
+      display.textContent =
+        `↗ ${fmtTokens(usage.totalTokens)} this msg  |  ${fmtTokens(todayTotal)} / ${fmtTokens(dailyLimit)} today`;
+    }
+
+    function updateTokenDisplayFromTotal(todayTotal, dailyLimit) {
+      const display = document.getElementById('token-display');
+      if (display) display.textContent =
+        `${fmtTokens(todayTotal)} / ${fmtTokens(dailyLimit)} tokens used today`;
+    }
+
+    function fmtTokens(n) {
+      return Number(n).toLocaleString();
     }
 
     function getWeatherEmoji(desc) {
@@ -262,7 +283,8 @@
             </div>`;
         }
       }
-      return weatherHtml + `<div>${escHtml(replyText)}</div>`;
+      return weatherHtml + `<div>${escHtml(replyText)}</div>`
+        + (arguments[2] ? `<div class="token-badge">↗ ${fmtTokens(arguments[2])} tokens</div>` : '');
     }
 
     // ── Server-side history ──────────────────────────────────────────────────────
@@ -353,7 +375,7 @@
       const indicator = typingBubble();
       btn.disabled = true;
 
-      let rawText = '', weatherData = null;
+      let rawText = '', weatherData = null, tokenUsage = null;
       const t0 = Date.now();
       try {
         const res = await fetch('/chat', {
@@ -363,13 +385,15 @@
         const data = await res.json();
         rawText = data.reply || data.error || 'No response.';
         weatherData = data.weatherData || null;
+        tokenUsage = data.tokenUsage || null;
       } catch { rawText = 'Could not reach the server.'; }
 
       const elapsed = Date.now() - t0;
       if (elapsed < 600) await new Promise(r => setTimeout(r, 600 - elapsed));
 
       indicator.remove();
-      addMsg('bot', buildBotHtml(rawText, weatherData));
+      addMsg('bot', buildBotHtml(rawText, weatherData, tokenUsage?.totalTokens));
+      updateTokenDisplay(tokenUsage);
       addToHistory(text, rawText, weatherData);
       btn.disabled = false;
       input.focus();
@@ -407,9 +431,14 @@
           currentTz = tzData.timezone;
           localStorage.setItem(TZ_KEY, currentTz);
         }
+
+        // 3. Load today's token usage
+        const tkRes = await fetch('/tokens');
+        const tkData = await tkRes.json();
+        updateTokenDisplayFromTotal(tkData.todayTotal, tkData.dailyLimit);
       } catch { }
 
-      // 3. Populate timezone dropdown (uses currentTz to pre-select correct option)
+      // 4. Populate timezone dropdown (uses currentTz to pre-select correct option)
       await loadTimezones();
 
       // 4. Load history and welcome message

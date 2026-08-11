@@ -32,13 +32,16 @@ public class ChatController {
     private final WeatherService weatherService;
     private final GroqService groqService;
     private final RagService ragService;
+    private final TokenService tokenService;
 
     public ChatController(WeatherService weatherService,
             @Qualifier("weatherGroq") GroqService groqService,
-            RagService ragService) {
+            RagService ragService,
+            TokenService tokenService) {
         this.weatherService = weatherService;
         this.groqService = groqService;
         this.ragService = ragService;
+        this.tokenService = tokenService;
     }
 
     @PostMapping("/chat")
@@ -102,12 +105,25 @@ public class ChatController {
             if (!ragContext.isEmpty())
                 promptForGroq = ragContext + "\n\n" + promptForGroq;
 
-            String reply = groqService.chat(promptForGroq);
+            GroqService.ChatResult result = groqService.chatWithUsage(promptForGroq);
+            String reply = result.reply();
+            GroqService.TokenUsage usage = result.usage();
+
+            // Persist to DB and get updated daily total
+            int userId = (int) request.getAttribute("userId");
+            tokenService.addTokens(userId, usage.totalTokens());
+            int todayTotal = tokenService.getTodayTotal(userId);
 
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("reply", reply);
             if (weatherData != null)
                 response.put("weatherData", weatherData);
+            response.put("tokenUsage", Map.of(
+                    "promptTokens", usage.promptTokens(),
+                    "completionTokens", usage.completionTokens(),
+                    "totalTokens", usage.totalTokens(),
+                    "todayTotal", todayTotal,
+                    "dailyLimit", tokenService.getDailyLimit()));
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {

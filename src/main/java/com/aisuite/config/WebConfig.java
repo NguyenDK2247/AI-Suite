@@ -18,7 +18,7 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addInterceptor(new AuthInterceptor(sessionService))
                 // Protect all API routes except auth endpoints and static files
                 .addPathPatterns("/chat", "/currency-chat", "/translate-chat",
-                        "/history/**", "/ingest/**", "/user/**")
+                        "/history/**", "/ingest/**", "/user/**", "/tokens/**")
                 .excludePathPatterns("/auth/**");
     }
 

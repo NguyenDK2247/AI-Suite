@@ -57,13 +57,16 @@ public class CurrencyController {
     private final CurrencyService currencyService;
     private final GroqService groqService;
     private final RagService ragService;
+    private final TokenService tokenService;
 
     public CurrencyController(CurrencyService currencyService,
             @Qualifier("currencyGroq") GroqService groqService,
-            RagService ragService) {
+            RagService ragService,
+            TokenService tokenService) {
         this.currencyService = currencyService;
         this.groqService = groqService;
         this.ragService = ragService;
+        this.tokenService = tokenService;
     }
 
     @PostMapping("/currency-chat")
@@ -122,12 +125,24 @@ public class CurrencyController {
             if (hasRagContext)
                 promptForGroq = ragContext + "\n\n" + promptForGroq;
 
-            String reply = groqService.chat(promptForGroq);
+            GroqService.ChatResult result = groqService.chatWithUsage(promptForGroq);
+            String reply = result.reply();
+            GroqService.TokenUsage usage = result.usage();
+
+            int userId = (int) request.getAttribute("userId");
+            tokenService.addTokens(userId, usage.totalTokens());
+            int todayTotal = tokenService.getTodayTotal(userId);
 
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("reply", reply);
             if (rateData != null)
                 response.put("rateData", rateData);
+            response.put("tokenUsage", Map.of(
+                    "promptTokens", usage.promptTokens(),
+                    "completionTokens", usage.completionTokens(),
+                    "totalTokens", usage.totalTokens(),
+                    "todayTotal", todayTotal,
+                    "dailyLimit", tokenService.getDailyLimit()));
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {

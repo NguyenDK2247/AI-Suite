@@ -235,3 +235,24 @@ A running record of every feature, enhancement, and fix built for this project. 
   - `src/main/resources/application.properties` - added `app.libretranslate.url=http://localhost:5000`
 - **Depends on:** LibreTranslate (local, `pip install libretranslate`), Entry `011`, Groq API
 - **Notes:** LibreTranslate must be running before the app starts (`libretranslate --host 0.0.0.0 --port 5000`). First run downloads ~1-2 GB of language models; subsequent runs start in seconds. `Map.ofEntries()` throws `IllegalArgumentException` on duplicate keys at class initialisation - always use a `static {}` block with `HashMap` for large maps. `HttpTimeoutException` extends `IOException` so catching both in a multi-catch is a compile error - `IOException` alone is sufficient. The `Connection reset` error occurs when LibreTranslate's worker process idles and drops the socket; the retry loop recovers from this automatically without user-facing errors.
+
+---
+
+### `013` - Token Usage Tracking
+- **Type:** Feature
+- **Status:** Complete
+- **Description:** Tracks Groq API token consumption per user per day, persisted in SQLite so usage survives app restarts and page switches. Every bot message displays how many tokens that message used, and the chat header shows a running daily total against Groq's 500,000 token/day limit. The daily counter resets automatically at midnight by keying records on the current date string. Token counts are shared across all three agents - switching from Weather to Currency to Translation and back shows the same accumulated daily total everywhere.
+- **Implemented:**
+  - `service/TokenService.java` - new service; creates `token_usage` table (user_id, date, total_tokens, PRIMARY KEY (user_id, date)); `addTokens()` uses SQLite's `INSERT ... ON CONFLICT DO UPDATE` to upsert atomically; `getTodayTotal()` queries by `LocalDate.now().toString()` so it returns 0 automatically on a new day without any cron job or scheduled reset; `getDailyLimit()` returns 500,000
+  - `controller/TokenController.java` - new controller; `GET /tokens` returns `{todayTotal, dailyLimit}` for the logged-in user; `POST /tokens` adds tokens and returns the updated total; both routes session-gated via `AuthInterceptor`
+  - `config/WebConfig.java` - added `/tokens/**` to protected interceptor routes; also fixed a pre-existing duplicate line bug in `addPathPatterns`
+  - `service/GroqService.java` - added `TokenUsage` record (promptTokens, completionTokens, totalTokens); added `ChatResult` record (reply, usage); `chatWithUsage()` parses the `usage` block from Groq's JSON response and returns both the reply and token counts; old `chat()` delegates to `chatWithUsage()` for backward compatibility; `resetHistory()` also resets `sessionTotalTokens`
+  - `controller/ChatController.java` - calls `chatWithUsage()`, persists tokens via `tokenService.addTokens()`, reads back `todayTotal`, includes `{promptTokens, completionTokens, totalTokens, todayTotal, dailyLimit}` in every response
+  - `controller/CurrencyController.java` - same token persistence pattern as ChatController
+  - `controller/TranslationController.java` - same token persistence pattern; fixed missing `import com.aisuite.service.TokenService` (other controllers use wildcard imports; this one uses explicit imports)
+  - `static/index.html` - added `token-display` element to chat header; `updateTokenDisplay(usage)` shows `↗ 267 this msg  |  1,243 / 500,000 today` after each message; `updateTokenDisplayFromTotal()` shows `1,243 / 500,000 tokens used today` on boot before any message is sent; boot sequence fetches `GET /tokens` to populate the display immediately on page load; per-message token badge (`.token-badge`) appended below each bot bubble via third argument to `buildBotHtml()`
+  - `static/currency.html` - same token display pattern; fixed stray extra `}` left by sed replacement
+  - `static/translation.html` - same token display pattern; fixed stray extra `}` left by sed replacement
+  - `static/styles.css` - added `.token-badge` style (10px, muted color, 0.7 opacity)
+- **Depends on:** Entry 011 (Spring Boot), Entry 012 (all three agents), Groq API
+- **Notes:** `INSERT ... ON CONFLICT(user_id, date) DO UPDATE SET total_tokens = total_tokens + excluded.total_tokens` is SQLite's upsert syntax - requires SQLite 3.24+. The daily limit of 500,000 is hardcoded in `TokenService.getDailyLimit()` for LLaMA 3.3 70B Versatile on Groq's free tier; update this constant if you switch models or upgrade your Groq plan. Extra `}` braces introduced by `sed` replacements inside existing function blocks are a common pitfall - always verify the resulting file structure after sed edits. `HttpTimeoutException` extends `IOException` so catching both in a multi-catch is a compile error - `IOException` alone is sufficient.
