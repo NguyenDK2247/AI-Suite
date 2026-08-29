@@ -3,7 +3,7 @@
 A personal AI agent and web interface for weather forecasting, currency exchange, and language translation, with a built-in knowledge base powered by RAG (Retrieval-Augmented Generation).
 
 ## 🚀 Current Features (WIP)
-* **Weather Agent:** fetches real-time weather and hourly forecasts via OpenWeatherMap, with Groq (LLaMA 3.3 70B Versatile) providing natural language commentary
+* **Weather Agent:** fetches real-time weather and hourly forecasts via OpenWeatherMap, with Groq (GPT OSS 120B) providing natural language commentary
 * **Currency Agent:** fetches live exchange rates via ExchangeRate-API and converts between currencies, with topic-guarded responses (regex prevents off-topic questions)
 * **Translation Agent:** translates text between 30+ languages via a locally hosted LibreTranslate instance; auto-detects source language; includes retry logic for connection resilience
 * **RAG Pipeline:** web scraper (Jsoup) ingests URLs into ChromaDB via local Ollama embeddings (`nomic-embed-text`), with hybrid search (semantic + keyword) and cosine-similarity reranking
@@ -21,7 +21,7 @@ A personal AI agent and web interface for weather forecasting, currency exchange
 |---|---|
 | Frontend | Vanilla HTML/CSS/JS (no framework) |
 | Backend | Spring Boot 3.2 (Java 17) |
-| LLM | Groq API - LLaMA 3.3 70B Versatile |
+| LLM | Groq API - GPT OSS 120B |
 | Weather data | OpenWeatherMap API |
 | Currency data | ExchangeRate-API (no key required) |
 | Translation | LibreTranslate (local) |
