@@ -24,7 +24,8 @@ public class IngestController {
                 "collections", new String[] {
                         "weather_knowledge",
                         "currency_knowledge",
-                        "translation_knowledge"
+                        "translation_knowledge",
+                        "dictionary_knowledge"
                 }));
     }
 

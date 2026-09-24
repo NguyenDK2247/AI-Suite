@@ -259,7 +259,7 @@ A running record of every feature, enhancement, and fix built for this project. 
 
 ---
 
-### 014 - Unicode Character Fix (CJK and Non-ASCII)
+### `014` - Unicode Character Fix (CJK and Non-ASCII)
 - **Type:** Fix
 - **Status:** Complete
 - **Description:** Non-ASCII characters (Chinese, Japanese, Korean, Arabic, Hebrew, etc.) were rendering as empty strings in bot responses and translated text. Groq's API and LibreTranslate both return non-ASCII characters as JSON Unicode escape sequences (`\uXXXX`) rather than literal UTF-8 characters. The manual JSON parsers in `GroqService`, `TranslationService`, and `VectorStore` only handled `\n`, `\"`, and `\\` but silently passed `\uXXXX` through unchanged, which browsers could not render as characters.
@@ -269,3 +269,30 @@ A running record of every feature, enhancement, and fix built for this project. 
   - `service/VectorStore.java` - same `unescapeJson()` helper added and applied in `parseDocuments()`; fixes RAG chunks containing non-ASCII content from ingested pages
 - **Depends on:** Entry `012` (Translation Agent), Entry `008` (RAG Pipeline)
 - **Notes:** This bug affects any language with characters outside the ASCII range - not just CJK. Any service that manually parses JSON strings rather than using a proper JSON library (Jackson, Gson) must implement `\uXXXX` decoding explicitly. The correct fix pattern is to check for `\` + `u` + 4 hex digits and call `appendCodePoint(Integer.parseInt(hex, 16))`. Using Jackson's `ObjectMapper` to parse Groq/API responses would eliminate this class of bug entirely and is worth considering in a future refactor.
+
+### `015` - Dictionary Agent
+- **Type:** Feature
+- **Status:** Complete
+- **Description:** A 4th AI agent dedicated to English word definitions, pronunciations, examples, and vocabulary questions. Uses the Free Dictionary API (no API key, no rate limit) to fetch structured word data including phonetics, part of speech, definitions, and usage examples. A green definition card renders in the chat bubble showing the word, phonetic transcription, part of speech badge, definitions, and example sentences. Includes full RAG, token tracking, history, timezone, and theme support consistent with all other agents.
+- **Implemented:**
+  - `service/DictionaryService.java` - new service; calls `api.dictionaryapi.dev/api/v2/entries/en/{word}`; parses `word`, `phonetic`, `meanings[].partOfSpeech`, `meanings[].definitions[].definition`, `meanings[].definitions[].example`; caps at 3 meanings and 3 definitions each to keep responses concise; includes `unescapeJson()` for Unicode support; returns 404-friendly error when word not found
+  - `controller/DictionaryController.java` - new controller; handles `POST /dictionary-chat`; topic guard via `TOPIC_PATTERN` (define, meaning, synonym, etymology, etc.); word extraction via `WORD_PATTERN` regex supporting quoted words, "define X", "what does X mean", "what is the meaning of X" phrasings; RAG from `dictionary_knowledge` collection runs before topic guard; full token persistence via `TokenService`; falls back to Groq general knowledge if word not found in API
+  - `service/GroqService.java` - added `DICTIONARY_PROMPT` constant
+  - `config/AgentConfig.java` - added `dictionaryGroq` bean
+  - `config/WebConfig.java` - added `/dictionary-chat` to protected interceptor routes
+  - `controller/PageController.java` - added `/dictionary` route serving `dictionary.html`
+  - `controller/IngestController.java` - added `dictionary_knowledge` to collections list
+  - `static/dictionary.html` - new page; green gradient card (`.dict-card`) with word + phonetic header, part-of-speech badge (`.dc-pos`), definition list (`.dc-def`), italic example sentences (`.dc-example`); quick-chips for common vocabulary words; 📖 Dictionary tab active in sidebar; full history, timezone, theme, token display
+  - `static/index.html`, `currency.html`, `translation.html`, `ingest.html` - 📖 Dictionary tab added to sidebar in all pages; `ingest.html` collection selector and log labels updated
+- **Depends on:** Free Dictionary API (`api.dictionaryapi.dev`, no key), Entry `011` (Spring Boot), Groq API
+- **Notes:** The Free Dictionary API only covers English words. Non-English or misspelled words return 404 - the controller catches this and falls back to Groq's training knowledge with a note. The `WORD_PATTERN` regex handles the most common phrasings but may miss unusual query structures; in those cases the controller passes the full message to Groq without API data.
+---
+
+### `016` - Groq Model Migration (LLaMA 3.3 70B → GPT-OSS 120B)
+- **Type:** Fix
+- **Status:** Complete
+- **Description:** Groq deprecated `llama-3.3-70b-versatile` on **August 16, 2026**, causing all agents to return a `404 Model Not Found` error. Migrated to `openai/gpt-oss-120b`, OpenAI's open-source 120B parameter model available on Groq's API, which provides comparable general-purpose quality and is compatible with Groq's OpenAI-compatible endpoint without any other code changes.
+- **Implemented:**
+  - `service/GroqService.java` - updated `MODEL` constant from `"llama-3.3-70b-versatile"` to `"openai/gpt-oss-120b"`
+- **Depends on:** Entry `011` (Spring Boot), Groq API
+- **Notes:** The `MODEL` constant in `GroqService.java` is the single source of truth for the model used across all agents - changing it affects Weather, Currency, Translation, and Dictionary simultaneously. A `401 Invalid API Key` error after a model change indicates the Groq API key has expired or been revoked, not a model issue - verify at `console.groq.com/keys`. The daily token limit may differ between models; update `TokenService.getDailyLimit()` if the new model has a different quota on your Groq plan.

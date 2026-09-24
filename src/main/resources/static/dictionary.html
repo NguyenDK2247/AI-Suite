@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dictionary Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- ── Left sidebar ─────────────────────────────────────────────────── -->
+    <div class="sidebar">
+      <div class="sidebar-logo">AI<br><span>Suite</span></div>
+      <nav class="sidebar-nav">
+        <a class="sidebar-tab" href="/" title="Weather">
+          <span class="tab-icon">🌤️</span>
+          <span class="tab-label">Weather</span>
+        </a>
+        <a class="sidebar-tab" href="/currency" title="Currency">
+          <span class="tab-icon">💱</span>
+          <span class="tab-label">Currency</span>
+        </a>
+        <a class="sidebar-tab" href="/translation" title="Translation">
+          <span class="tab-icon">🌐</span>
+          <span class="tab-label">Translate</span>
+        </a>
+        <a class="sidebar-tab active" href="/dictionary" title="Dictionary">
+          <span class="tab-icon">📖</span>
+          <span class="tab-label">Dictionary</span>
+        </a>
+        <a class="sidebar-tab" href="/knowledge" title="Knowledge">
+          <span class="tab-icon">🧠</span>
+          <span class="tab-label">Knowledge</span>
+        </a>
+      </nav>
+      <div class="sidebar-tz">
+        <div class="tz-label">🌐 TZ</div>
+        <select id="tz-select" class="tz-select" onchange="onTzChange(this.value)">
+          <option value="">UTC</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ── Chat panel ────────────────────────────────────────────────────── -->
+    <div class="chat-panel">
+      <div class="chat-header">
+        <div class="status-dot" style="background:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,.18)"></div>
+        <h1>Dictionary Assistant</h1>
+        <small id="token-display" style="margin-left:auto;margin-right:8px;color:var(--muted);font-size:11px"></small>
+        <small id="username-display" style="margin-right:8px"></small>
+        <button onclick="doLogout()" class="logout-btn">Logout</button>
+      </div>
+
+      <div id="log"></div>
+
+      <div class="chips">
+        <span class="chip" onclick="quickSend('Define serendipity')">📖 serendipity</span>
+        <span class="chip" onclick="quickSend('What does ephemeral mean?')">📖 ephemeral</span>
+        <span class="chip" onclick="quickSend('Define resilience')">📖 resilience</span>
+        <span class="chip" onclick="quickSend('What is the meaning of ubiquitous?')">📖 ubiquitous</span>
+        <span class="chip" onclick="quickSend('Define melancholy')">📖 melancholy</span>
+      </div>
+
+      <div class="input-row">
+        <input id="input" type="text"
+               placeholder='Try: "Define serendipity" or "What does ephemeral mean?"'
+               autocomplete="off" onkeydown="if(event.key==='Enter') send()" />
+        <button id="btn" onclick="send()">Send</button>
+      </div>
+    </div>
+
+    <!-- ── History panel ─────────────────────────────────────────────────── -->
+    <div class="history-panel">
+      <div class="history-header">
+        <h2>Chat History</h2>
+        <div style="display:flex;gap:8px;">
+          <button id="theme-btn" onclick="toggleTheme()" title="Toggle theme">☀️</button>
+          <button id="clear-btn" onclick="clearHistory()">Clear</button>
+        </div>
+      </div>
+      <div class="persist-badge" style="background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.2);color:#34d399;">
+        Saved per account — dictionary history
+      </div>
+      <div class="hist-search-wrap">
+        <input type="text" id="hist-search" class="hist-search"
+               placeholder="Search history…" oninput="renderHistory(this.value)" />
+      </div>
+      <div id="history-list"></div>
+    </div>
+
+  </div>
+
+  <style>
+    /* ── Dictionary card ────────────────────────────────────────────────── */
+    .dict-card {
+      background: linear-gradient(135deg, #059669, #10b981);
+      color: #fff;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,.15);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 380px;
+    }
+
+    .dc-header {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .dc-word {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -.3px;
+    }
+
+    .dc-phonetic {
+      font-size: 13px;
+      opacity: .85;
+      font-style: italic;
+    }
+
+    .dc-meaning {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border-top: 1px solid rgba(255,255,255,.2);
+      padding-top: 8px;
+    }
+
+    .dc-pos {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      opacity: .8;
+      background: rgba(255,255,255,.15);
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-bottom: 2px;
+    }
+
+    .dc-def {
+      font-size: 13px;
+      line-height: 1.5;
+      opacity: .95;
+    }
+
+    .dc-example {
+      font-size: 11px;
+      opacity: .75;
+      font-style: italic;
+      border-left: 2px solid rgba(255,255,255,.3);
+      padding-left: 8px;
+      margin-top: 2px;
+    }
+
+    .dc-source {
+      font-size: 10px;
+      opacity: .6;
+      margin-top: 2px;
+    }
+  </style>
+
+  <script>
+    const PAGE      = 'dictionary';
+    const THEME_KEY = 'app_theme';
+    const TZ_KEY    = 'app_timezone';
+
+    const log         = document.getElementById('log');
+    const input       = document.getElementById('input');
+    const btn         = document.getElementById('btn');
+    const historyList = document.getElementById('history-list');
+    const themeBtn    = document.getElementById('theme-btn');
+    const tzSelect    = document.getElementById('tz-select');
+
+    let currentTz = localStorage.getItem(TZ_KEY) || 'UTC';
+
+    // ── Time helpers ──────────────────────────────────────────────────────────
+    function toTZFull(utcStr) {
+      const date = new Date(utcStr.replace(' ', 'T') + 'Z');
+      return date.toLocaleString([], {
+        month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', timeZone: currentTz
+      });
+    }
+    function nowInTZ() {
+      return new Date().toLocaleTimeString([], {
+        hour: '2-digit', minute: '2-digit', timeZone: currentTz
+      });
+    }
+    function escHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+    function fmtTokens(n) { return Number(n).toLocaleString(); }
+
+    // ── Token display ─────────────────────────────────────────────────────────
+    function updateTokenDisplay(usage) {
+      if (!usage) return;
+      const todayTotal = usage.todayTotal ?? 0;
+      const dailyLimit = usage.dailyLimit ?? 500000;
+      const display    = document.getElementById('token-display');
+      display.textContent =
+        `↗ ${fmtTokens(usage.totalTokens)} this msg  |  ${fmtTokens(todayTotal)} / ${fmtTokens(dailyLimit)} today`;
+    }
+    function updateTokenDisplayFromTotal(todayTotal, dailyLimit) {
+      const display = document.getElementById('token-display');
+      if (display) display.textContent =
+        `${fmtTokens(todayTotal)} / ${fmtTokens(dailyLimit)} tokens used today`;
+    }
+
+    // ── Dictionary card builder ───────────────────────────────────────────────
+    function buildBotHtml(replyText, dd, tokenCount) {
+      let cardHtml = '';
+      if (dd) {
+        let meaningsHtml = '';
+        for (const m of dd.meanings || []) {
+          let defsHtml = '';
+          for (const d of m.definitions || []) {
+            defsHtml += `<div class="dc-def">• ${escHtml(d.definition)}</div>`;
+            if (d.example)
+              defsHtml += `<div class="dc-example">"${escHtml(d.example)}"</div>`;
+          }
+          meaningsHtml += `
+            <div class="dc-meaning">
+              <span class="dc-pos">${escHtml(m.partOfSpeech)}</span>
+              ${defsHtml}
+            </div>`;
+        }
+
+        cardHtml = `
+          <div class="dict-card">
+            <div class="dc-header">
+              <span class="dc-word">${escHtml(dd.word)}</span>
+              ${dd.phonetic ? `<span class="dc-phonetic">${escHtml(dd.phonetic)}</span>` : ''}
+            </div>
+            ${meaningsHtml}
+            <div class="dc-source">Free Dictionary API</div>
+          </div>`;
+      }
+      return cardHtml
+           + `<div>${escHtml(replyText)}</div>`
+           + (tokenCount ? `<div class="token-badge">↗ ${fmtTokens(tokenCount)} tokens</div>` : '');
+    }
+
+    // ── Chat rendering ────────────────────────────────────────────────────────
+    function addMsg(role, html, utcStr) {
+      const outer = document.createElement('div');
+      outer.className = 'msg ' + role;
+      const timeLabel = utcStr ? toTZFull(utcStr) : nowInTZ();
+      outer.innerHTML = `
+        <div class="avatar">${role === 'user' ? 'You' : 'AI'}</div>
+        <div class="bubble-wrap">
+          <span class="ts">${timeLabel}</span>
+          <div class="bubble">${html}</div>
+        </div>`;
+      log.appendChild(outer);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function typingBubble() {
+      const outer = document.createElement('div');
+      outer.className = 'msg bot';
+      outer.id = 'typing-indicator';
+      outer.innerHTML = `
+        <div class="avatar">AI</div>
+        <div class="bubble-wrap">
+          <span class="ts">${nowInTZ()}</span>
+          <div class="bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>
+        </div>`;
+      log.appendChild(outer);
+      log.scrollTop = log.scrollHeight;
+      return outer;
+    }
+
+    // ── Server-side history ───────────────────────────────────────────────────
+    async function loadHistory() {
+      try {
+        const res = await fetch('/history?page=' + PAGE);
+        if (!res.ok) return [];
+        return await res.json();
+      } catch { return []; }
+    }
+    async function addToHistory(question, answer, dictData = null) {
+      try {
+        await fetch('/history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ page: PAGE, question, answer, extra: dictData })
+        });
+        renderHistory(document.getElementById('hist-search').value);
+      } catch {}
+    }
+    async function deleteHistoryItem(id) {
+      try {
+        await fetch('/history?id=' + id, { method: 'DELETE' });
+        renderHistory(document.getElementById('hist-search').value);
+      } catch {}
+    }
+    async function clearHistory() {
+      if (!confirm('Clear all dictionary history?')) return;
+      try {
+        await fetch('/history?page=' + PAGE, { method: 'DELETE' });
+        document.getElementById('hist-search').value = '';
+        renderHistory();
+      } catch {}
+    }
+    async function renderHistory(query = '') {
+      let entries = await loadHistory();
+      if (query) {
+        const q = query.toLowerCase();
+        entries = entries.filter(e =>
+          e.question.toLowerCase().includes(q) || e.answer.toLowerCase().includes(q));
+      }
+      historyList.innerHTML = '';
+      if (!entries.length) {
+        historyList.innerHTML = query
+          ? '<p class="hist-empty">No matches found.</p>'
+          : '<p class="hist-empty">No history yet.<br>Try looking up a word!</p>';
+        return;
+      }
+      [...entries].reverse().forEach(entry => {
+        const item = document.createElement('div');
+        item.className = 'hist-item';
+        item.innerHTML = `
+          <div class="hist-time">
+            <span>${toTZFull(entry.time)}</span>
+            <button class="hist-del" title="Delete">✖</button>
+          </div>
+          <div class="hist-q">${escHtml(entry.question)}</div>
+          <div class="hist-a">${escHtml(entry.answer)}</div>`;
+        item.querySelector('.hist-del').onclick = e => {
+          e.stopPropagation();
+          deleteHistoryItem(entry.id);
+        };
+        item.onclick = () => {
+          addMsg('user', escHtml(entry.question), entry.time);
+          addMsg('bot', buildBotHtml(entry.answer, entry.extra, null), entry.time);
+        };
+        historyList.appendChild(item);
+      });
+    }
+
+    // ── Timezone ──────────────────────────────────────────────────────────────
+    function utcOffsetLabel(tz) {
+      try {
+        const parts = new Intl.DateTimeFormat('en', {
+          timeZone: tz, timeZoneName: 'shortOffset'
+        }).formatToParts(new Date());
+        return parts.find(p => p.type === 'timeZoneName')?.value || 'UTC';
+      } catch { return 'UTC'; }
+    }
+    async function loadTimezones() {
+      try {
+        const res  = await fetch('https://worldtimeapi.org/api/timezone');
+        const list = await res.json();
+        tzSelect.innerHTML = list.map(tz => {
+          const label = tz.replace(/_/g, ' ');
+          return `<option value="${tz}" ${tz === currentTz ? 'selected' : ''}>${label} (${utcOffsetLabel(tz)})</option>`;
+        }).join('');
+      } catch {
+        const fallback = ['UTC','America/New_York','Europe/London','Asia/Ho_Chi_Minh','Asia/Tokyo'];
+        tzSelect.innerHTML = fallback.map(tz =>
+          `<option value="${tz}" ${tz === currentTz ? 'selected' : ''}>${tz.replace(/_/g,' ')} (${utcOffsetLabel(tz)})</option>`
+        ).join('');
+      }
+    }
+    async function onTzChange(tz) {
+      currentTz = tz;
+      localStorage.setItem(TZ_KEY, tz);
+      try {
+        await fetch('/user/settings', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ timezone: tz })
+        });
+      } catch {}
+      renderHistory(document.getElementById('hist-search').value);
+    }
+
+    // ── Send ──────────────────────────────────────────────────────────────────
+    async function send() {
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      addMsg('user', escHtml(text));
+      const indicator = typingBubble();
+      btn.disabled = true;
+
+      let rawText = '', dictData = null, tokenUsage = null;
+      const t0 = Date.now();
+      try {
+        const res  = await fetch('/dictionary-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text })
+        });
+        const data = await res.json();
+        rawText    = data.reply     || data.error || 'No response.';
+        dictData   = data.dictData  || null;
+        tokenUsage = data.tokenUsage || null;
+      } catch { rawText = 'Could not reach the server.'; }
+
+      const elapsed = Date.now() - t0;
+      if (elapsed < 600) await new Promise(r => setTimeout(r, 600 - elapsed));
+
+      indicator.remove();
+      addMsg('bot', buildBotHtml(rawText, dictData, tokenUsage?.totalTokens));
+      updateTokenDisplay(tokenUsage);
+      addToHistory(text, rawText, dictData);
+      btn.disabled = false;
+      input.focus();
+    }
+
+    function quickSend(text) { input.value = text; send(); }
+    async function doLogout() {
+      await fetch('/auth/logout', { method: 'POST' });
+      window.location.href = '/login';
+    }
+
+    // ── Theme ─────────────────────────────────────────────────────────────────
+    function initTheme() {
+      if (localStorage.getItem(THEME_KEY) === 'light') {
+        document.body.classList.add('light-mode');
+        themeBtn.textContent = '🌙';
+      }
+    }
+    function toggleTheme() {
+      const light = document.body.classList.toggle('light-mode');
+      themeBtn.textContent = light ? '🌙' : '☀️';
+      localStorage.setItem(THEME_KEY, light ? 'light' : 'dark');
+    }
+
+    // ── Boot ──────────────────────────────────────────────────────────────────
+    initTheme();
+    (async () => {
+      try {
+        const meRes  = await fetch('/auth/me');
+        const meData = await meRes.json();
+        if (!meData.ok) { window.location.href = '/login'; return; }
+        document.getElementById('username-display').textContent = '👤 ' + meData.username;
+
+        const tzRes  = await fetch('/user/settings');
+        const tzData = await tzRes.json();
+        if (tzData.ok && tzData.timezone) {
+          currentTz = tzData.timezone;
+          localStorage.setItem(TZ_KEY, currentTz);
+        }
+
+        const tkRes  = await fetch('/tokens');
+        const tkData = await tkRes.json();
+        updateTokenDisplayFromTotal(tkData.todayTotal, tkData.dailyLimit);
+      } catch {}
+
+      await loadTimezones();
+      renderHistory();
+      addMsg('bot', 'Hi! I can look up definitions, pronunciations, and examples for any English word.\n\nTry: "Define serendipity" or "What does ephemeral mean?"');
+    })();
+  </script>
+</body>
+</html>

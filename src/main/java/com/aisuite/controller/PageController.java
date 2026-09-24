@@ -39,6 +39,11 @@ public class PageController {
         return requireAuth(request) ? html("translation.html") : redirect("/login");
     }
 
+    @GetMapping(value = "/dictionary", produces = MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<Resource> dictionary(HttpServletRequest request) {
+        return requireAuth(request) ? html("dictionary.html") : redirect("/login");
+    }
+
     @GetMapping(value = "/knowledge", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<Resource> knowledge(HttpServletRequest request) {
         return requireAuth(request) ? html("ingest.html") : redirect("/login");
@@ -67,7 +72,6 @@ public class PageController {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-    @SuppressWarnings("null")
     private ResponseEntity<Resource> html(String filename) {
         return ResponseEntity.ok()
                 .contentType(MediaType.TEXT_HTML)

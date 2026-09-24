@@ -12,7 +12,7 @@ import java.util.List;
 public class GroqService {
 
     private static final String API_URL = "https://api.groq.com/openai/v1/chat/completions";
-    private static final String MODEL = "llama-3.3-70b-versatile";
+    private static final String MODEL = "openai/gpt-oss-120b";
 
     public static final String WEATHER_PROMPT = """
             You are a friendly weather assistant. Your job is to give clear,
@@ -41,6 +41,18 @@ public class GroqService {
             text, the translation, and optionally a usage tip or cultural note.
             Keep responses to 3-5 sentences. Friendly, conversational tone.
             If asked something unrelated to language or translation, politely redirect.
+            """;
+
+    public static final String DICTIONARY_PROMPT = """
+            You are a friendly and knowledgeable dictionary assistant.
+            Your job is to help users understand word definitions, usage, etymology,
+            synonyms, antonyms, and examples.
+            When given dictionary data, present it naturally — mention the word,
+            its pronunciation if available, its part of speech, and explain the
+            definition clearly with an example if one is provided.
+            Feel free to add a usage tip, memory trick, or interesting word origin note.
+            Keep responses to 3-5 sentences. Friendly, conversational tone.
+            If asked something unrelated to words or vocabulary, politely redirect.
             """;
 
     private final String apiKey;

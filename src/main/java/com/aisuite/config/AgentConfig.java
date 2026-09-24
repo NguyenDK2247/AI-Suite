@@ -36,4 +36,10 @@ public class AgentConfig {
     public GroqService translationGroqService() {
         return new GroqService(groqApiKey, GroqService.TRANSLATION_PROMPT);
     }
+
+    // Named bean for dictionary agent
+    @Bean("dictionaryGroq")
+    public GroqService dictionaryGroqService() {
+        return new GroqService(groqApiKey, GroqService.DICTIONARY_PROMPT);
+    }
 }

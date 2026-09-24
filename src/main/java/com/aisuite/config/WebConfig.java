@@ -13,17 +13,16 @@ public class WebConfig implements WebMvcConfigurer {
         this.sessionService = sessionService;
     }
 
-    @SuppressWarnings("null")
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new AuthInterceptor(sessionService))
                 // Protect all API routes except auth endpoints and static files
                 .addPathPatterns("/chat", "/currency-chat", "/translate-chat",
-                        "/history/**", "/ingest/**", "/user/**", "/tokens/**")
+                        "/dictionary-chat", "/history/**", "/ingest/**",
+                        "/user/**", "/tokens/**")
                 .excludePathPatterns("/auth/**");
     }
 
-    @SuppressWarnings("null")
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
