@@ -1,19 +1,20 @@
-# 🤖🌤️💱🌐 AI Suite
+# 🤖🌤️💱🌐📖 AI Suite
 
-A personal AI agent and web interface for weather forecasting, currency exchange, and language translation, with a built-in knowledge base powered by RAG (Retrieval-Augmented Generation).
+A personal AI agent and web interface for weather forecasting, currency exchange, language translation, and word definitions, with a built-in knowledge base powered by RAG (Retrieval-Augmented Generation).
 
-## 🚀 Current Features (WIP)
-* **Weather Agent:** fetches real-time weather and hourly forecasts via OpenWeatherMap, with Groq (GPT OSS 120B) providing natural language commentary
+## 🚀 Current Features
+* **Weather Agent:** fetches real-time weather and hourly forecasts via OpenWeatherMap, with Groq providing natural language commentary
 * **Currency Agent:** fetches live exchange rates via ExchangeRate-API and converts between currencies, with topic-guarded responses (regex prevents off-topic questions)
 * **Translation Agent:** translates text between 30+ languages via a locally hosted LibreTranslate instance; auto-detects source language; includes retry logic for connection resilience
+* **Dictionary Agent:** looks up English word definitions, phonetics, part of speech, and usage examples via the Free Dictionary API (no API key required); renders a structured definition card per word
 * **RAG Pipeline:** web scraper (Jsoup) ingests URLs into ChromaDB via local Ollama embeddings (`nomic-embed-text`), with hybrid search (semantic + keyword) and cosine-similarity reranking
-* **Knowledge Base UI:** dedicated `/knowledge` page to add URLs per agent (Weather, Currency, Translation), with crawl depth control and real-time ingest feedback
+* **Knowledge Base UI:** dedicated `/knowledge` page to add URLs per agent (Weather, Currency, Translation, Dictionary), with crawl depth control and real-time ingest feedback
 * **Authentication:** BCrypt-hashed passwords, SQLite-backed user accounts, HttpOnly session cookies with optional 30-day "remember me"
 * **Per-user history:** chat history stored server-side in SQLite, fully searchable, separate per agent and per account
-* **Token usage tracking:** daily Groq token consumption displayed per message and as a running total against the 500,000/day limit; persists across page switches and app restarts; resets automatically at midnight
-* **Timezone selector:** IANA timezone dropdown (via WorldTimeAPI) synced across all pages and persisted per user; all timestamps (chat bubbles, forecast cards, history) respect the chosen timezone
+* **Token usage tracking:** daily Groq token consumption displayed per message and as a running total against the daily limit; persists across page switches and app restarts; resets automatically at midnight
+* **Timezone selector:** IANA timezone dropdown (via WorldTimeAPI) synced across all pages and persisted per user; all timestamps respect the chosen timezone
 * **Dark/light mode:** synced across login, signup, and all chat pages via `localStorage`
-* **Multi-agent sidebar:** Weather, Currency, Translation, and Knowledge tabs with persistent navigation
+* **Multi-agent sidebar:** Weather, Currency, Translation, Dictionary, and Knowledge tabs with persistent navigation
 
 ## 🛠️ Tech Stack
 
@@ -21,10 +22,11 @@ A personal AI agent and web interface for weather forecasting, currency exchange
 |---|---|
 | Frontend | Vanilla HTML/CSS/JS (no framework) |
 | Backend | Spring Boot 3.2 (Java 17) |
-| LLM | Groq API - GPT OSS 120B |
+| LLM | Groq API - `openai/gpt-oss-120b` |
 | Weather data | OpenWeatherMap API |
 | Currency data | ExchangeRate-API (no key required) |
 | Translation | LibreTranslate (local) |
+| Dictionary | Free Dictionary API (no key required) |
 | Embeddings | Ollama - `nomic-embed-text` (local) |
 | Vector store | ChromaDB v2 (local) |
 | Web scraping | Jsoup |
@@ -37,7 +39,7 @@ A personal AI agent and web interface for weather forecasting, currency exchange
 ### Prerequisites
 
 1. **Java 17+**
-2. **Maven 3.9+** - https://maven.apache.org/download.cgi (add `bin/` to PATH; set `JAVA_HOME` to JDK root)
+2. **Maven 3.9+** - https://maven.apache.org/download.cgi (add `bin/` to PATH; set `JAVA_HOME` to JDK root, not `bin\java.exe`)
 3. **Ollama** - https://ollama.com/download
    ```
    ollama pull nomic-embed-text
@@ -99,6 +101,7 @@ ai-suite/
 │   │   │   ├── AuthController.java
 │   │   │   ├── ChatController.java
 │   │   │   ├── CurrencyController.java
+│   │   │   ├── DictionaryController.java
 │   │   │   ├── HistoryController.java
 │   │   │   ├── IngestController.java
 │   │   │   ├── PageController.java
@@ -110,6 +113,7 @@ ai-suite/
 │   │   │   └── User.java
 │   │   └── service/
 │   │       ├── CurrencyService.java
+│   │       ├── DictionaryService.java
 │   │       ├── EmbeddingService.java
 │   │       ├── GroqService.java
 │   │       ├── HistoryService.java
@@ -128,6 +132,7 @@ ai-suite/
 │       └── static/
 │           ├── auth.css
 │           ├── currency.html
+│           ├── dictionary.html
 │           ├── index.html
 │           ├── ingest.html
 │           ├── login.html
@@ -142,17 +147,18 @@ ai-suite/
 └── run.bat
 ```
 
-### Notes on ChromaDB (Windows)
-ChromaDB on Windows binds to the IPv6 loopback (`::1`) rather than IPv4 (`127.0.0.1`). If the app cannot reach ChromaDB, verify with:
-```
-curl http://localhost:8000/api/v2/heartbeat
-```
-The app is pre-configured for this in `application.properties`.
+### Notes
+- ChromaDB on Windows binds to IPv6 (`::1`) rather than IPv4 (`127.0.0.1`). The app is pre-configured for this in `application.properties`
+- `JAVA_HOME` must point to the JDK root folder (e.g. `C:\Program Files\Eclipse Adoptium\jdk-17.0.13`), not `bin\java.exe`
+- If user-level and system-level `JAVA_HOME` conflict, user-level takes priority on Windows
+- LibreTranslate downloads language models (~1-2 GB) on first run only; subsequent starts take a few seconds
+- The Groq model is configured in `GroqService.java` - update `MODEL` if you switch models or Groq retires the current one
 
 ## 🚧 Roadmap
 - [x] **Weather Agent** - real-time weather and hourly forecasts
 - [x] **Currency Agent** - live exchange rates with topic guard
 - [x] **Translation Agent** - 30+ languages via local LibreTranslate
+- [x] **Dictionary Agent** - English definitions, phonetics, examples via Free Dictionary API
 - [x] **Interactive UI** - multi-column chat interface with history panel
 - [x] **Dark/light mode** - synced across all pages including login/signup
 - [x] **Authentication** - signup, login, BCrypt passwords, session cookies, remember me
@@ -163,7 +169,7 @@ The app is pre-configured for this in `application.properties`.
 - [x] **Reranking** - cosine similarity reranking of retrieved candidates
 - [x] **Knowledge base UI** - `/knowledge` page to manage ingested sources per agent
 - [x] **Spring Boot migration** - Maven dependency management, embedded Tomcat, JdbcTemplate
-- [x] **Token usage tracking** - per-message token count and daily total vs. 500,000 limit
+- [x] **Token usage tracking** - per-message token count and daily total vs. limit
 - [ ] **Agent Capability Expansion** - add more agents (news, schedules, etc.)
 - [ ] **Streaming responses** - stream Groq output token by token instead of waiting
 - [ ] **User preferences** - per-user system prompt customisation
