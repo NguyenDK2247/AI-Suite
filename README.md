@@ -172,5 +172,5 @@ ai-suite/
 - [x] **Token usage tracking** - per-message token count and daily total vs. limit
 - [ ] **Agent Capability Expansion** - add more agents (news, schedules, etc.)
 - [ ] **Streaming responses** - stream Groq output token by token instead of waiting
-- [ ] **User preferences** - per-user system prompt customisation
+- [ ] **User preferences** - per-user system prompt customization
 - [ ] **RAG source attribution** - show which source each answer came from in the UI

@@ -234,7 +234,7 @@ A running record of every feature, enhancement, and fix built for this project. 
   - `static/index.html`, `currency.html`, `ingest.html` - 🌐 Translate tab added to sidebar
   - `src/main/resources/application.properties` - added `app.libretranslate.url=http://localhost:5000`
 - **Depends on:** LibreTranslate (local, `pip install libretranslate`), Entry `011`, Groq API
-- **Notes:** LibreTranslate must be running before the app starts (`libretranslate --host 0.0.0.0 --port 5000`). First run downloads ~1-2 GB of language models; subsequent runs start in seconds. `Map.ofEntries()` throws `IllegalArgumentException` on duplicate keys at class initialisation - always use a `static {}` block with `HashMap` for large maps. `HttpTimeoutException` extends `IOException` so catching both in a multi-catch is a compile error - `IOException` alone is sufficient. The `Connection reset` error occurs when LibreTranslate's worker process idles and drops the socket; the retry loop recovers from this automatically without user-facing errors.
+- **Notes:** LibreTranslate must be running before the app starts (`libretranslate --host 0.0.0.0 --port 5000`). First run downloads ~1-2 GB of language models; subsequent runs start in seconds. `Map.ofEntries()` throws `IllegalArgumentException` on duplicate keys at class initialization - always use a `static {}` block with `HashMap` for large maps. `HttpTimeoutException` extends `IOException` so catching both in a multi-catch is a compile error - `IOException` alone is sufficient. The `Connection reset` error occurs when LibreTranslate's worker process idles and drops the socket; the retry loop recovers from this automatically without user-facing errors.
 
 ---
 
@@ -270,6 +270,8 @@ A running record of every feature, enhancement, and fix built for this project. 
 - **Depends on:** Entry `012` (Translation Agent), Entry `008` (RAG Pipeline)
 - **Notes:** This bug affects any language with characters outside the ASCII range - not just CJK. Any service that manually parses JSON strings rather than using a proper JSON library (Jackson, Gson) must implement `\uXXXX` decoding explicitly. The correct fix pattern is to check for `\` + `u` + 4 hex digits and call `appendCodePoint(Integer.parseInt(hex, 16))`. Using Jackson's `ObjectMapper` to parse Groq/API responses would eliminate this class of bug entirely and is worth considering in a future refactor.
 
+---
+
 ### `015` - Dictionary Agent
 - **Type:** Feature
 - **Status:** Complete
@@ -286,6 +288,7 @@ A running record of every feature, enhancement, and fix built for this project. 
   - `static/index.html`, `currency.html`, `translation.html`, `ingest.html` - 📖 Dictionary tab added to sidebar in all pages; `ingest.html` collection selector and log labels updated
 - **Depends on:** Free Dictionary API (`api.dictionaryapi.dev`, no key), Entry `011` (Spring Boot), Groq API
 - **Notes:** The Free Dictionary API only covers English words. Non-English or misspelled words return 404 - the controller catches this and falls back to Groq's training knowledge with a note. The `WORD_PATTERN` regex handles the most common phrasings but may miss unusual query structures; in those cases the controller passes the full message to Groq without API data.
+
 ---
 
 ### `016` - Groq Model Migration (LLaMA 3.3 70B → GPT-OSS 120B)
@@ -296,3 +299,30 @@ A running record of every feature, enhancement, and fix built for this project. 
   - `service/GroqService.java` - updated `MODEL` constant from `"llama-3.3-70b-versatile"` to `"openai/gpt-oss-120b"`
 - **Depends on:** Entry `011` (Spring Boot), Groq API
 - **Notes:** The `MODEL` constant in `GroqService.java` is the single source of truth for the model used across all agents - changing it affects Weather, Currency, Translation, and Dictionary simultaneously. A `401 Invalid API Key` error after a model change indicates the Groq API key has expired or been revoked, not a model issue - verify at `console.groq.com/keys`. The daily token limit may differ between models; update `TokenService.getDailyLimit()` if the new model has a different quota on your Groq plan.
+
+---
+
+### `017` - Oracle Database Migration (SQLite → Oracle 23ai Free)
+- **Type:** Refactor
+- **Status:** Partial - all code written; not yet verified by a first successful run against Oracle
+- **Description:** Replaced the file-based SQLite database (`app.db`) with a locally installed Oracle Database 23ai Free instance as the only datastore for users, sessions, chat history, and token usage. This is a full migration, not a dual-database setup. The data-access layer is still Spring `JdbcTemplate`, so controllers and the frontend are unchanged; the work is the driver, connection config, schema, and the SQL that was SQLite-specific.
+- **Implemented:**
+  - **Oracle setup (manual, outside the repo)** - installed Oracle Database 23ai Free locally (port 1521, service `FREEPDB1`); created a dedicated schema user `aisuite` with `CONNECT`, `RESOURCE`, `UNLIMITED TABLESPACE`
+  - `pom.xml` - removed `sqlite-jdbc` and `hibernate-community-dialects`; added `com.oracle.database.jdbc:ojdbc11:23.4.0.24.05`
+  - `application.properties` - datasource now `jdbc:oracle:thin:@localhost:1521/FREEPDB1` with `oracle.jdbc.OracleDriver`; username and password read from `${ORACLE_USER}` / `${ORACLE_PASSWORD}`; added `spring.sql.init.separator=/` and `spring.sql.init.continue-on-error=true`; file rewritten cleanly, which also removed a duplicated `spring.web.resources.add-mappings` line
+  - `schema.sql` - rewritten for Oracle: `AUTOINCREMENT` → `GENERATED ALWAYS AS IDENTITY`; `TEXT` → `VARCHAR2` / `CLOB`; `datetime('now')` → `SYSTIMESTAMP`; `COLLATE NOCASE` → unique index on `UPPER(username)`; `IF NOT EXISTS` dropped (Oracle doesn't support it); the `token_usage` column `date` renamed to `date_key` because `DATE` is reserved; each statement terminated with `/`
+  - `config/DatabaseConfig.java` - removed the SQLite-only `PRAGMA journal_mode=WAL` and `PRAGMA foreign_keys=ON`
+  - `service/TokenService.java` - `INSERT ... ON CONFLICT DO UPDATE` replaced with `MERGE INTO ... USING (SELECT ... FROM DUAL)`; table creation removed from the constructor (now lives in `schema.sql`); queries use `date_key`
+  - `service/UserService.java` - case-insensitive lookup via `UPPER(username) = UPPER(?)`; generated key requested with `prepareStatement(sql, new String[]{"id"})`; the unused `isValidUsername()` helper was dropped
+  - `service/HistoryService.java` - `LIMIT 60` → `FETCH FIRST 60 ROWS ONLY`; `created_at` read as a `Timestamp` and formatted to `yyyy-MM-dd HH:mm:ss` for the frontend; generated key requested by column name
+  - `service/SessionService.java` - rewritten with no functional change (`expires_at` is still stored as a formatted string)
+  - `.env` - two new variables: `ORACLE_USER`, `ORACLE_PASSWORD`
+  - `app.db` - no longer used; safe to delete
+- **Depends on:** Oracle Database 23ai Free (local service must be running before the app starts), Entry `011` (Spring Boot), Entries `005` / `006` / `013` (the tables being migrated)
+- **Notes:**
+  - **Existing data is not migrated.** SQLite users, sessions, history, and token counts are not copied over. Accounts must be created again and history starts empty.
+  - **Timestamp risk to verify:** `SYSTIMESTAMP` returns the database server's local time, whereas SQLite's `datetime('now')` was UTC, and the frontend treats `created_at` as UTC when applying the chosen timezone. If the machine is not on UTC, history times may be offset. The likely fix is `DEFAULT SYS_EXTRACT_UTC(SYSTIMESTAMP)` on `created_at`; this has not been applied or tested yet.
+  - **`!` in passwords:** `CREATE USER aisuite IDENTIFIED BY Pass123!;` fails in SQL*Plus with `ORA-00922`. Quote the password or avoid special characters.
+  - **Schema separator:** with `spring.sql.init.separator=/`, any `/` outside a quoted string or comment in `schema.sql` would split a statement. Keep slashes out of the file apart from the terminators.
+  - **`continue-on-error=true`** lets the app restart when tables already exist, but it also hides genuine schema failures. If a table seems missing, check the startup log.
+  - **Length limits:** `history.question` is `VARCHAR2(4000)`, so a very long user message would fail to insert. `answer` and `extra_json` are `CLOB` and have no practical limit.

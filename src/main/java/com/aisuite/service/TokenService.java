@@ -8,9 +8,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Tracks daily Groq token usage per user in SQLite.
+ * Tracks daily Groq token usage per user in Oracle.
  * Resets automatically when the date changes.
- * Table: token_usage (user_id, date, total_tokens)
+ * Table: token_usage (user_id, date_key, total_tokens)
  */
 @Service
 public class TokenService {
@@ -21,24 +21,21 @@ public class TokenService {
 
     public TokenService(JdbcTemplate db) {
         this.db = db;
-        db.execute("""
-                    CREATE TABLE IF NOT EXISTS token_usage (
-                        user_id      INTEGER NOT NULL,
-                        date         TEXT    NOT NULL,
-                        total_tokens INTEGER NOT NULL DEFAULT 0,
-                        PRIMARY KEY (user_id, date),
-                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-                    )
-                """);
     }
 
     // ── Add tokens used by a single message ───────────────────────────────────
     public void addTokens(int userId, int tokens) {
         String today = LocalDate.now().toString();
+        // Oracle MERGE replaces SQLite's INSERT ... ON CONFLICT DO UPDATE
         db.update("""
-                INSERT INTO token_usage (user_id, date, total_tokens)
-                VALUES (?, ?, ?)
-                ON CONFLICT(user_id, date) DO UPDATE SET total_tokens = total_tokens + excluded.total_tokens
+                MERGE INTO token_usage t
+                USING (SELECT ? AS user_id, ? AS date_key, ? AS tokens FROM DUAL) src
+                ON (t.user_id = src.user_id AND t.date_key = src.date_key)
+                WHEN MATCHED THEN
+                    UPDATE SET t.total_tokens = t.total_tokens + src.tokens
+                WHEN NOT MATCHED THEN
+                    INSERT (user_id, date_key, total_tokens)
+                    VALUES (src.user_id, src.date_key, src.tokens)
                 """, userId, today, tokens);
     }
 
@@ -46,7 +43,7 @@ public class TokenService {
     public int getTodayTotal(int userId) {
         String today = LocalDate.now().toString();
         List<Map<String, Object>> rows = db.queryForList(
-                "SELECT total_tokens FROM token_usage WHERE user_id = ? AND date = ?",
+                "SELECT total_tokens FROM token_usage WHERE user_id = ? AND date_key = ?",
                 userId, today);
         if (rows.isEmpty())
             return 0;

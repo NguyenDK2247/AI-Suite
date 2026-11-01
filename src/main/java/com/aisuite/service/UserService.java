@@ -27,9 +27,10 @@ public class UserService {
     // ── Lookup ────────────────────────────────────────────────────────────────
     public User findByUsername(String username) {
         try {
+            // Oracle: use UPPER() for case-insensitive comparison
             return db.queryForObject(
                     "SELECT id, username, password_hash, timezone, created_at " +
-                            "FROM users WHERE username = ? COLLATE NOCASE",
+                            "FROM users WHERE UPPER(username) = UPPER(?)",
                     (rs, row) -> {
                         User u = new User();
                         u.setId(rs.getInt("id"));
@@ -72,7 +73,7 @@ public class UserService {
             return new SignupResult(false, "Username is required.", -1);
         if (!USERNAME_RE.matcher(username).matches())
             return new SignupResult(false,
-                    "Username must be 3–20 characters: letters, numbers, underscores only.", -1);
+                    "Username must be 3-20 characters: letters, numbers, underscores only.", -1);
         if (password == null || password.length() < 8)
             return new SignupResult(false, "Password must be at least 8 characters.", -1);
         if (findByUsername(username) != null)
@@ -82,15 +83,15 @@ public class UserService {
 
         KeyHolder keys = new GeneratedKeyHolder();
         db.update(conn -> {
+            // Oracle: use RETURNING INTO via a PreparedStatement with getGeneratedKeys
             PreparedStatement ps = conn.prepareStatement(
                     "INSERT INTO users (username, password_hash) VALUES (?, ?)",
-                    Statement.RETURN_GENERATED_KEYS);
+                    new String[] { "id" });
             ps.setString(1, username);
             ps.setString(2, hash);
             return ps;
         }, keys);
 
-        @SuppressWarnings("null")
         int newId = keys.getKey().intValue();
         return new SignupResult(true, null, newId);
     }
@@ -105,7 +106,6 @@ public class UserService {
 
         User user = findByUsername(username);
         if (user == null) {
-            // Timing-safe: run BCrypt even when user not found
             BCrypt.checkpw("dummy", DUMMY_HASH);
             return new LoginResult(false, "Invalid username or password.", -1);
         }
@@ -119,9 +119,5 @@ public class UserService {
     // ── Timezone ──────────────────────────────────────────────────────────────
     public void updateTimezone(int userId, String timezone) {
         db.update("UPDATE users SET timezone = ? WHERE id = ?", timezone, userId);
-    }
-
-    public boolean isValidUsername(String username) {
-        return username != null && USERNAME_RE.matcher(username).matches();
     }
 }

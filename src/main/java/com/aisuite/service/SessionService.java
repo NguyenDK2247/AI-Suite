@@ -29,7 +29,8 @@ public class SessionService {
         String token = generateToken();
         int days = rememberMe ? REMEMBER_DAYS : SESSION_DAYS;
         String expiresAt = LocalDateTime.now().plusDays(days).format(FMT);
-        db.update("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)",
+        db.update(
+                "INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)",
                 token, userId, expiresAt);
         return token;
     }
