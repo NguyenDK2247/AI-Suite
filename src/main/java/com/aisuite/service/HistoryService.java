@@ -70,8 +70,8 @@ public class HistoryService {
         String finalExtraJson = extraJson;
         db.update(conn -> {
             PreparedStatement ps = conn.prepareStatement(
-                    "INSERT INTO history (user_id, page, question, answer, extra_json) " +
-                            "VALUES (?, ?, ?, ?, ?)",
+                    "INSERT INTO history (user_id, page, question, answer, extra_json, created_at) " +
+                            "VALUES (?, ?, ?, ?, ?, SYS_EXTRACT_UTC(SYSTIMESTAMP))",
                     new String[] { "id" });
             ps.setInt(1, userId);
             ps.setString(2, page);
