@@ -302,9 +302,9 @@ A running record of every feature, enhancement, and fix built for this project. 
 
 ---
 
-### `017` - Oracle Database Migration (SQLite → Oracle 23ai Free)
+### 017 - Oracle Database Migration (SQLite → Oracle 23ai Free)
 - **Type:** Refactor
-- **Status:** Partial - all code written; not yet verified by a first successful run against Oracle
+- **Status:** Complete - verified against a local Oracle 23ai Free instance: signup, login, history saving, the UTC timestamp fix, and `token_usage` (both the insert and update branches of the `MERGE`)
 - **Description:** Replaced the file-based SQLite database (`app.db`) with a locally installed Oracle Database 23ai Free instance as the only datastore for users, sessions, chat history, and token usage. This is a full migration, not a dual-database setup. The data-access layer is still Spring `JdbcTemplate`, so controllers and the frontend are unchanged; the work is the driver, connection config, schema, and the SQL that was SQLite-specific.
 - **Implemented:**
   - **Oracle setup (manual, outside the repo)** - installed Oracle Database 23ai Free locally (port 1521, service `FREEPDB1`); created a dedicated schema user `aisuite` with `CONNECT`, `RESOURCE`, `UNLIMITED TABLESPACE`
@@ -314,15 +314,16 @@ A running record of every feature, enhancement, and fix built for this project. 
   - `config/DatabaseConfig.java` - removed the SQLite-only `PRAGMA journal_mode=WAL` and `PRAGMA foreign_keys=ON`
   - `service/TokenService.java` - `INSERT ... ON CONFLICT DO UPDATE` replaced with `MERGE INTO ... USING (SELECT ... FROM DUAL)`; table creation removed from the constructor (now lives in `schema.sql`); queries use `date_key`
   - `service/UserService.java` - case-insensitive lookup via `UPPER(username) = UPPER(?)`; generated key requested with `prepareStatement(sql, new String[]{"id"})`; the unused `isValidUsername()` helper was dropped
-  - `service/HistoryService.java` - `LIMIT 60` → `FETCH FIRST 60 ROWS ONLY`; `created_at` read as a `Timestamp` and formatted to `yyyy-MM-dd HH:mm:ss` for the frontend; generated key requested by column name
+  - `service/HistoryService.java` - `LIMIT 60` → `FETCH FIRST 60 ROWS ONLY`; `created_at` read as a `Timestamp` and formatted to `yyyy-MM-dd HH:mm:ss` for the frontend; generated key requested by column name; inserts set `created_at` explicitly to `SYS_EXTRACT_UTC(SYSTIMESTAMP)` so stored times are UTC regardless of the database server's time zone
   - `service/SessionService.java` - rewritten with no functional change (`expires_at` is still stored as a formatted string)
   - `.env` - two new variables: `ORACLE_USER`, `ORACLE_PASSWORD`
   - `app.db` - no longer used; safe to delete
 - **Depends on:** Oracle Database 23ai Free (local service must be running before the app starts), Entry `011` (Spring Boot), Entries `005` / `006` / `013` (the tables being migrated)
 - **Notes:**
   - **Existing data is not migrated.** SQLite users, sessions, history, and token counts are not copied over. Accounts must be created again and history starts empty.
-  - **Timestamp risk to verify:** `SYSTIMESTAMP` returns the database server's local time, whereas SQLite's `datetime('now')` was UTC, and the frontend treats `created_at` as UTC when applying the chosen timezone. If the machine is not on UTC, history times may be offset. The likely fix is `DEFAULT SYS_EXTRACT_UTC(SYSTIMESTAMP)` on `created_at`; this has not been applied or tested yet.
+  - **Timestamp bug (found, fixed, and verified):** `created_at` defaulted to `SYSTIMESTAMP`, which is the database server's local time (UTC+7 on this machine), whereas SQLite's `datetime('now')` was UTC and the frontend treats `created_at` as UTC. A message sent at 1:51 PM local time was stored as `01.51 PM`, and the history panel with the sidebar set to UTC (UTC+0) showed 1:51 PM instead of 6:51 AM. With a UTC+7 timezone selected the same row would display 7 hours ahead. An earlier version of this note wrongly called this verified. Fix: `HistoryService.addEntry` now sets `created_at` explicitly to `SYS_EXTRACT_UTC(SYSTIMESTAMP)` in the INSERT. The column defaults in `schema.sql` are unchanged, and history is the only place `created_at` is displayed. Rows saved before the fix are still in local time and need to be deleted or shifted back 7 hours. Verified after the fix: a message sent at 12:00 PM local time (UTC+7) was stored as `2026-11-22 05:00:41`, and `SYS_EXTRACT_UTC(SYSTIMESTAMP)` and `SYSTIMESTAMP` differed by 7 hours (10:09 vs 17:09) as expected.
   - **`!` in passwords:** `CREATE USER aisuite IDENTIFIED BY Pass123!;` fails in SQL*Plus with `ORA-00922`. Quote the password or avoid special characters.
   - **Schema separator:** with `spring.sql.init.separator=/`, any `/` outside a quoted string or comment in `schema.sql` would split a statement. Keep slashes out of the file apart from the terminators.
   - **`continue-on-error=true`** lets the app restart when tables already exist, but it also hides genuine schema failures. If a table seems missing, check the startup log.
   - **Length limits:** `history.question` is `VARCHAR2(4000)`, so a very long user message would fail to insert. `answer` and `extra_json` are `CLOB` and have no practical limit.
+  - **Token tracking (verified):** `token_usage` keeps one row per user per day, so each new date starts from zero while earlier days are untouched. A 530-token message took today's total from 460 to 990, and the chat header counter matched the Oracle row, which confirms both the insert and update branches of the `MERGE`.
